@@ -12,7 +12,7 @@ __pycache__/
 .idea/
 
 # Media files (keep local only)
-Hidup jokowi  sound meme.mp3
+
 
 # MediaPipe model
 hand_landmarker.task

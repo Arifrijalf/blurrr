@@ -4,7 +4,7 @@ Real-time hand gesture detection using OpenCV and MediaPipe.
 
 Supported gestures:
 - V Sign (Peace): Blur + typewriter text "Foto kita blur" + music
-- Thumbs Up: Colored edge detection + "Mantap!" text
+- Thumbs Up: Colored edge detection + "Mantab!" text
 - Fist: Red overlay + "Hidup Jokowi!!!" + music
 """
 
@@ -25,7 +25,7 @@ except ImportError:
     PYGAME_AVAILABLE = False
     print("[WARNING] pygame tidak tersedia. Fitur audio dinonaktifkan.")
 
-MUSIC_PATH = "FOTO KITA BLUR - SAL PRIADI (mp3cut.net).mp3"
+MUSIC_PATH = "FOTO KITA BLUR - SAL PRIADI.mp3"
 MUSIC_PATH_2 = "Hidup jokowi  sound meme.mp3"
 BLUR_KERNEL_SIZE = 25
 EDGE_CANNY_LOW = 50
@@ -190,7 +190,7 @@ class GestureDetector:
 class EffectRenderer:
     """Applies visual effects and text overlays to camera frames."""
 
-    TYPEWRITER_TEXT = "blur"
+    TYPEWRITER_TEXT = "blurr"
     TYPEWRITER_CHAR_DELAY = 0.12
     TYPEWRITER_FADE_DURATION = 0.08
 
@@ -274,7 +274,7 @@ class EffectRenderer:
         return blurred
 
     def apply_thumbs_up(self, frame: np.ndarray, first_frame: bool) -> np.ndarray:
-        """Apply colored edge detection + animated 'Mantap!' text."""
+        """Apply colored edge detection + animated 'Mantab' text."""
         if first_frame:
             self._thumbs_anim_start = time.time()
 
@@ -295,7 +295,7 @@ class EffectRenderer:
             scale = FONT_SCALE_MAIN
 
         self._put_text_centered(
-            output, "Mantap!", font_scale=scale,
+            output, "Mantab!", font_scale=scale,
             color=(0, 255, 200), thickness=3,
             outline_color=(0, 0, 0), outline_thickness=7,
         )
@@ -330,10 +330,10 @@ class EffectRenderer:
     def draw_status(self, frame: np.ndarray, mode: GestureMode):
         """Draw current mode label on top-left corner."""
         status_map = {
-            GestureMode.NORMAL:    ("NORMAL MODE",       (180, 180, 180)),
-            GestureMode.V_SIGN:    ("V SIGN DETECTED",   (0, 220, 255)),
-            GestureMode.THUMBS_UP: ("THUMBS UP DETECTED", (0, 255, 100)),
-            GestureMode.FIST:      ("FIST DETECTED",     (0, 0, 255)),
+            GestureMode.NORMAL:    ("b aja",       (180, 180, 180)),
+            GestureMode.V_SIGN:    ("peace",   (0, 220, 255)),
+            GestureMode.THUMBS_UP: ("mantab", (0, 255, 100)),
+            GestureMode.FIST:      ("jokowii",     (0, 0, 255)),
         }
         label, color = status_map[mode]
 

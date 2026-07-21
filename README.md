@@ -17,23 +17,27 @@ Real-time hand gesture detection application using OpenCV and MediaPipe. Detect 
 ## Installation
 
 1. Clone this repository:
+
 ```bash
 git clone https://github.com/Arifrijalf/blurrr.git
 cd blurrr
 ```
 
 2. Create virtual environment (recommended):
+
 ```bash
 py -3.11 -m venv venv
 venv\Scripts\activate
 ```
 
 3. Install dependencies:
+
 ```bash
 pip install -r requirements.txt
 ```
 
 4. Download hand landmark model:
+
 ```bash
 python -c "import urllib.request; urllib.request.urlretrieve('https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task', 'hand_landmarker.task')"
 ```
@@ -48,25 +52,28 @@ python hand_gesture_app.py
 
 ### Controls
 
-| Gesture | Effect |
-|---------|--------|
-| V Sign (Peace) | Blur + "Foto kita blur" text + music |
-| Thumbs Up | Edge detection + "Mantap!" text |
-| Fist | Red overlay + "Hidup Jokowi!!!" + music |
-| Q / ESC | Exit application |
+| Gesture        | Effect                                  |
+| -------------- | --------------------------------------- |
+| V Sign (Peace) | Blur + "Foto kita blur" text + music    |
+| Thumbs Up      | Edge detection + "Mantap!" text         |
+| Fist           | Red overlay + "Hidup Jokowi!!!" + music |
+| Q / ESC        | Exit application                        |
 
 ## Troubleshooting
 
 ### Kamera tidak terdeteksi
+
 - Pastikan tidak ada aplikasi lain yang menggunakan webcam (Zoom, Teams, dll).
 - Coba cabut dan pasang kembali webcam.
 - Aplikasi akan otomatis mencoba mendeteksi kamera pada index 0 atau 1.
 
 ### Error `AttributeError: module 'mediapipe' has no attribute 'solutions'`
+
 - Pastikan versi mediapipe yang terinstall >= 0.10.30.
 - Jalankan: `pip install --upgrade mediapipe`
 
 ### Error `FileNotFoundError: hand_landmarker.task`
+
 - Pastikan file `hand_landmarker.task` ada di root folder project.
 - Ikuti langkah instalasi nomor 4 untuk mengunduh model.
 
