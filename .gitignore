@@ -13,3 +13,20 @@ __pycache__/
 
 # MediaPipe model
 hand_landmarker.task
+
+# AI/Editor config files (keep local only)
+.claude/
+.codebuddy/
+.cursorrules
+.gemini/
+.github/
+.kiro/
+.mcp.json
+.qoder/
+.windsurfrules
+AGENTS.md
+CLAUDE.md
+CODEBUDDY.md
+GEMINI.md
+QODER.md
+opencode.jsonc
