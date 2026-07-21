@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FotoKitaBlur - Hand Gesture Detection</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>FotoKitaBlur</h1>
+        <div class="main-wrapper">
+            <div class="video-wrapper">
+                <video id="webcam" autoplay playsinline></video>
+                <canvas id="output"></canvas>
+            </div>
+            <div id="startBtn" class="start-btn">
+                <div class="controls">
+                    <label for="blurRange">Blur Intensity:</label>
+                    <input type="range" id="blurRange" min="0" max="30" value="14">
+                    <span id="blurVal">14px</span>
+                    <canvas id="preview" width="200" height="150"></canvas>
+                </div>
+                <button onclick="startApp()">Start Camera</button>
+            </div>
+        </div>
+        <div id="loading" class="loading" style="display:none;">Loading model...</div>
+    </div>
+
+    <script type="module" src="app.js"></script>
+<script>
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "q" || e.key === "Q" || e.key === "Escape") {
+                const video = document.getElementById("webcam");
+                if (video.srcObject) {
+                    video.srcObject.getTracks().forEach(t => t.stop());
+                    video.srcObject = null;
+                }
+                document.getElementById("output").getContext("2d").clearRect(0, 0, 640, 480);
+                document.getElementById("startBtn").style.display = "flex";
+                document.getElementById("preview").style.display = "block";
+            }
+        });
+        </script>
+</body>
+</html>
