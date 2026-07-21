@@ -1,2 +1,15 @@
 # Added by code-review-graph
 .code-review-graph/
+
+# Python virtual environments
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# IDE
+.vscode/
+.idea/
+
+# MediaPipe model
+hand_landmarker.task
