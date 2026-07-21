@@ -2,6 +2,6 @@
 # Install dengan: pip install -r requirements.txt
 
 opencv-python>=4.8.0
-mediapipe>=0.10.0
+mediapipe>=0.10.30
 numpy>=1.24.0
 pygame>=2.5.0

@@ -15,6 +15,9 @@ import time
 import subprocess
 from enum import Enum, auto
 
+mp_tasks = mp.tasks
+mp_vision = mp_tasks.vision
+
 try:
     import pygame
     PYGAME_AVAILABLE = True
@@ -187,7 +190,7 @@ class GestureDetector:
 class EffectRenderer:
     """Applies visual effects and text overlays to camera frames."""
 
-    TYPEWRITER_TEXT = "Foto kita blur"
+    TYPEWRITER_TEXT = "blur"
     TYPEWRITER_CHAR_DELAY = 0.12
     TYPEWRITER_FADE_DURATION = 0.08
 
@@ -350,20 +353,52 @@ class EffectRenderer:
                     cv2.FONT_HERSHEY_SIMPLEX, 0.45, (160, 160, 160), 1, cv2.LINE_AA)
 
 
+class HandLandmarkerDrawer:
+    """Draw hand landmarks and connections on frame."""
+
+    HAND_CONNECTIONS = [
+        (0, 1), (1, 2), (2, 3), (3, 4),
+        (0, 5), (5, 6), (6, 7), (7, 8),
+        (5, 9), (9, 10), (10, 11), (11, 12),
+        (9, 13), (13, 14), (14, 15), (15, 16),
+        (13, 17), (17, 18), (18, 19), (19, 20),
+        (0, 17),
+    ]
+
+    @staticmethod
+    def draw_landmarks(frame, landmarks, w, h):
+        """Draw landmarks and connections on frame."""
+        lm_points = []
+        for lm in landmarks:
+            x = int(lm.x * w)
+            y = int(lm.y * h)
+            lm_points.append((x, y))
+
+        for start, end in HandLandmarkerDrawer.HAND_CONNECTIONS:
+            cv2.line(frame, lm_points[start], lm_points[end], (255, 255, 0), 2)
+
+        for x, y in lm_points:
+            cv2.circle(frame, (x, y), 3, (0, 200, 255), -1)
+
+
 class HandGestureApp:
     """Main application: orchestrates webcam, MediaPipe detection, state management, and effects."""
 
     SKIP_CAMERAS = ["droidcam"]
+    MODEL_PATH = "hand_landmarker.task"
 
     def __init__(self):
-        self.mp_hands = mp.solutions.hands
-        self.mp_draw = mp.solutions.drawing_utils
-        self.hands = self.mp_hands.Hands(
-            static_image_mode=False,
-            max_num_hands=1,
-            min_detection_confidence=MIN_DETECTION_CONFIDENCE,
+        base_options = mp_tasks.BaseOptions(model_asset_path=self.MODEL_PATH)
+        options = mp_vision.HandLandmarkerOptions(
+            base_options=base_options,
+            running_mode=mp_vision.RunningMode.VIDEO,
+            num_hands=1,
+            min_hand_detection_confidence=MIN_DETECTION_CONFIDENCE,
+            min_hand_presence_confidence=MIN_DETECTION_CONFIDENCE,
             min_tracking_confidence=MIN_TRACKING_CONFIDENCE,
         )
+        self.hand_landmarker = mp_vision.HandLandmarker.create_from_options(options)
+        self.drawer = HandLandmarkerDrawer()
 
         self.gesture_detector = GestureDetector()
         self.renderer = EffectRenderer()
@@ -426,11 +461,13 @@ class HandGestureApp:
 
     def run(self):
         """Start the real-time detection loop."""
-        cam_index = 1
+        cam_index = self._find_camera_index()
 
         cap = cv2.VideoCapture(cam_index, cv2.CAP_DSHOW)
         if not cap.isOpened():
             cap = cv2.VideoCapture(cam_index)
+        if not cap.isOpened():
+            cap = cv2.VideoCapture(0)
         if not cap.isOpened():
             print("[ERROR] Cannot open webcam. Ensure camera is not in use by another app.")
             return
@@ -441,6 +478,7 @@ class HandGestureApp:
 
         print("[INFO] App running. Press Q or ESC to exit.")
 
+        frame_count = 0
         while True:
             ret, frame = cap.read()
             if not ret:
@@ -448,22 +486,24 @@ class HandGestureApp:
                 break
 
             frame = cv2.flip(frame, 1)
+            h, w = frame.shape[:2]
 
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = self.hands.process(rgb)
+            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+
+            frame_count += 1
+            timestamp_ms = int(time.time() * 1000)
+
+            results = self.hand_landmarker.detect_for_video(mp_image, timestamp_ms)
 
             detected_mode = GestureMode.NORMAL
 
-            if results.multi_hand_landmarks:
-                hand_landmarks = results.multi_hand_landmarks[0]
-                detected_mode = self.gesture_detector.detect(hand_landmarks.landmark)
+            if results.hand_landmarks:
+                hand_landmarks = results.hand_landmarks[0]
+                detected_mode = self.gesture_detector.detect(hand_landmarks)
 
                 if detected_mode == GestureMode.NORMAL:
-                    self.mp_draw.draw_landmarks(
-                        frame, hand_landmarks, self.mp_hands.HAND_CONNECTIONS,
-                        self.mp_draw.DrawingSpec(color=(0, 200, 255), thickness=2, circle_radius=3),
-                        self.mp_draw.DrawingSpec(color=(255, 255, 0), thickness=2),
-                    )
+                    self.drawer.draw_landmarks(frame, hand_landmarks, w, h)
 
             self._handle_mode_transition(detected_mode)
 
@@ -488,7 +528,7 @@ class HandGestureApp:
         self.audio.stop_all()
         cap.release()
         cv2.destroyAllWindows()
-        self.hands.close()
+        self.hand_landmarker.close()
         print("[INFO] App closed.")
 
 
