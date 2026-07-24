@@ -5,7 +5,7 @@ const MUSIC_URL = "FOTO%20KITA%20BLUR%20-%20SAL%20PRIADI.mp3";
 const MUSIC_URL_2 = "Hidup%20jokowi%20%20sound%20meme.mp3";
 
 const FADE_DURATION = 0.4;
-const DEBOUNCE_FRAMES = 1;
+const DEBOUNCE_FRAMES = 7;
 const TYPEWRITER_CHAR_DELAY = 0.12;
 const TYPEWRITER_TEXT = "Foto kita blur";
 const THUMB_THRESHOLD = 0.10;
@@ -53,6 +53,12 @@ const EMA_ALPHA = 0.3;
 
 let calibrationManager = null;
 
+let heartSprite = null;
+let typewriterCacheCanvas = null;
+let typewriterCacheCtx = null;
+let typewriterCacheText = "";
+let typewriterCacheWidth = 0;
+
 function smoothLandmarks(raw) {
     if (!emaLandmarks) emaLandmarks = raw.map(l => ({...l}));
     raw.forEach((l, i) => {
@@ -66,22 +72,18 @@ function smoothLandmarks(raw) {
 const FINGER_TIPS = [8, 12, 16, 20];
 const FINGER_PIPS = [6, 10, 14, 18];
 
-// Prefetch promises - start loading immediately on module load
 let prefetchedVision = null;
 let prefetchedAudioCtx = null;
 let prefetchedAudioVsign = null;
 let prefetchedAudioFist = null;
 
 function prefetchAssets() {
-    // Create audio context early
     prefetchedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    // Prefetch vision wasm files
     prefetchedVision = FilesetResolver.forVisionTasks(
         "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm"
     ).catch(e => { console.warn("Vision prefetch failed:", e); return null; });
 
-    // Prefetch audio buffers in parallel
     prefetchedAudioVsign = prefetchedAudioCtx
         ? fetch(MUSIC_URL)
             .then(r => r.arrayBuffer())
@@ -97,8 +99,67 @@ function prefetchAssets() {
         : Promise.resolve(null);
 }
 
-// Start prefetching immediately when module loads
 prefetchAssets();
+
+function prerenderHeartSprite() {
+    const size = 32;
+    const c = document.createElement("canvas");
+    c.width = size;
+    c.height = size;
+    const hctx = c.getContext("2d");
+    hctx.fillStyle = "#fff";
+    hctx.beginPath();
+    hctx.moveTo(size / 2, size * 0.9);
+    hctx.bezierCurveTo(size * 0.05, size * 0.45, size * 0.2, size * 0.05, size / 2, size * 0.35);
+    hctx.bezierCurveTo(size * 0.8, size * 0.05, size * 0.95, size * 0.45, size / 2, size * 0.9);
+    hctx.fill();
+    heartSprite = c;
+}
+
+function prerenderTypewriterCache() {
+    typewriterCacheCanvas = document.createElement("canvas");
+    typewriterCacheCanvas.width = W;
+    typewriterCacheCanvas.height = H;
+    typewriterCacheCtx = typewriterCacheCanvas.getContext("2d");
+    typewriterCacheText = "";
+}
+
+function updateTypewriterCache(solidText, fadeChar, fadeAlpha) {
+    const tctx = typewriterCacheCtx;
+    tctx.clearRect(0, 0, W, H);
+
+    const font = "bold 48px 'Segoe UI', sans-serif";
+    tctx.font = font;
+    tctx.textAlign = "center";
+    tctx.textBaseline = "middle";
+
+    const fullWidth = tctx.measureText(TYPEWRITER_TEXT).width;
+    const baseX = (W - fullWidth) / 2;
+    const baseY = H / 2;
+
+    if (solidText) {
+        const solidW = tctx.measureText(solidText).width;
+        tctx.strokeStyle = "#000";
+        tctx.lineWidth = 7;
+        tctx.strokeText(solidText, baseX + solidW / 2, baseY);
+        tctx.fillStyle = "#fff";
+        tctx.fillText(solidText, baseX + solidW / 2, baseY);
+    }
+
+    if (fadeChar) {
+        const prefixW = tctx.measureText(solidText).width;
+        const charX = baseX + prefixW;
+        tctx.globalAlpha = fadeAlpha;
+        tctx.strokeStyle = "#000";
+        tctx.lineWidth = 7;
+        tctx.strokeText(fadeChar, charX + tctx.measureText(fadeChar).width / 2, baseY);
+        tctx.fillStyle = "#fff";
+        tctx.fillText(fadeChar, charX + tctx.measureText(fadeChar).width / 2, baseY);
+        tctx.globalAlpha = 1.0;
+    }
+
+    typewriterCacheText = solidText + (fadeChar || "");
+}
 
 function unmirror(fn) {
     ctx.save();
@@ -211,7 +272,7 @@ function resetPhotoBooth() {
     downloadBtn.style.display = "none";
 }
 
-let calibrationState = "IDLE"; // IDLE, COUNTDOWN, RECORDING, DONE
+let calibrationState = "IDLE";
 let calibrationStep = 0;
 let calibrationCountdown = 0;
 let calibrationCountdownInterval = null;
@@ -222,13 +283,13 @@ function startCalibration() {
     calibrationStep = 0;
     calibrationCountdown = 5;
     calibrationManager.startCalibration();
-    
+
     countdownBtn.style.display = "none";
     downloadBtn.style.display = "none";
     calibrationBtn.style.display = "none";
-    
+
     showCalibrationOverlay();
-    
+
     calibrationCountdownInterval = setInterval(() => {
         calibrationCountdown--;
         if (calibrationCountdown <= 0) {
@@ -241,29 +302,29 @@ function startCalibration() {
 function startRecordingStep() {
     calibrationState = "RECORDING";
     calibrationManager.startRecordingStep();
-    
+
     let recordingTime = 0;
     const maxRecordingTime = 5;
-    
+
     updateCalibrationOverlay("Recording " + calibrationManager.currentStepName() + "...", maxRecordingTime, 0);
-    
+
     calibrationRecordingInterval = setInterval(() => {
         recordingTime++;
         const progress = (recordingTime / maxRecordingTime) * 100;
         updateCalibrationOverlay("Recording " + calibrationManager.currentStepName() + "...", maxRecordingTime - recordingTime, progress);
-        
+
         if (recordingTime >= maxRecordingTime) {
             clearInterval(calibrationRecordingInterval);
             calibrationManager.stopRecording();
-            
+
             const nextStep = calibrationManager.nextStep();
             if (nextStep) {
                 calibrationStep++;
                 calibrationCountdown = 5;
                 calibrationState = "COUNTDOWN";
-                
+
                 updateCalibrationOverlay("Next: " + nextStep, 5, 100);
-                
+
                 calibrationCountdownInterval = setInterval(() => {
                     calibrationCountdown--;
                     updateCalibrationOverlay("Next: " + nextStep, calibrationCountdown, 100);
@@ -283,9 +344,9 @@ function finishCalibration() {
     calibrationState = "DONE";
     calibrationManager.save();
     calibrationManager.load();
-    
+
     hideCalibrationOverlay();
-    
+
     countdownBtn.style.display = "inline-block";
     downloadBtn.style.display = "none";
     calibrationBtn.style.display = "inline-block";
@@ -301,7 +362,7 @@ function showCalibrationOverlay() {
     stepEl.textContent = "Pose: " + calibrationManager.currentStepName();
     timerEl.textContent = "5";
     progressEl.style.width = "0%";
-    
+
     if (calibrationManager.hasExistingCalibration()) {
         mergeInfo.style.display = "block";
         mergeInfo.textContent = "Menggabungkan dengan data sebelumnya...";
@@ -344,6 +405,9 @@ export async function startApp() {
     offscreen.height = PROCESS_H;
     offCtx = offscreen.getContext("2d", { willReadFrequently: false });
 
+    prerenderHeartSprite();
+    prerenderTypewriterCache();
+
     let stream;
     try {
         stream = await navigator.mediaDevices.getUserMedia({
@@ -359,7 +423,6 @@ export async function startApp() {
     video.style.display = "none";
     loading.textContent = "Loading hand detection model...";
 
-    // Use prefetched audio context and buffers
     audioCtx = prefetchedAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
     const [vision] = await Promise.all([
         prefetchedVision || FilesetResolver.forVisionTasks(
@@ -418,36 +481,32 @@ function detectGesture(landmarks) {
     const fingersUp = FINGER_TIPS.map((tip, i) => fingerUp(landmarks, tip, FINGER_PIPS[i]));
     const [indexUp, middleUp, ringUp, pinkyUp] = fingersUp;
 
-    // Hitung skor gesture (continuous)
     const handHeight = Math.abs(landmarks[0].y - landmarks[9].y);
+    if (handHeight < 0.001) return "NORMAL";
+
     const indexConf = (landmarks[5].y - landmarks[8].y) / handHeight;
     const middleConf = (landmarks[9].y - landmarks[12].y) / handHeight;
-    
-    // V-SIGN dengan Hysteresis
+
     let vSignScore = (indexConf + middleConf) / 2;
-    if (vSignScore > 0.15) return "V_SIGN";
-    if (vSignScore < 0.05 && currentMode === "V_SIGN") return "V_SIGN";
+    if (vSignScore > 0.12) return "V_SIGN";
+    if (vSignScore < 0.03 && currentMode === "V_SIGN") return "V_SIGN";
 
     const upright = isHandUpright(landmarks);
     const thumbTip = landmarks[4];
     const thumbIp = landmarks[3];
     const indexMcp = landmarks[5];
-    const wrist = landmarks[0];
-    
-    if (handHeight > 0.01) {
-        const thumbExtTip = upright ? indexMcp.y - thumbTip.y : thumbTip.y - indexMcp.y;
-        const thumbExtIp = upright ? indexMcp.y - thumbIp.y : thumbIp.y - indexMcp.y;
-        const avgThumbExt = (thumbExtTip + thumbExtIp) / 2;
-        const thumbScore = avgThumbExt / handHeight;
-        
-        // THUMBS_UP dengan Hysteresis
-        if (thumbScore > 0.10) return "THUMBS_UP";
-        if (thumbScore > 0.00 && currentMode === "THUMBS_UP") return "THUMBS_UP";
-        
-        // FIST dengan Hysteresis
-        if (thumbScore <= 0.05) return "FIST";
-        if (thumbScore <= 0.15 && currentMode === "FIST") return "FIST";
-    }
+
+    const thumbExtTip = upright ? indexMcp.y - thumbTip.y : thumbTip.y - indexMcp.y;
+    const thumbExtIp = upright ? indexMcp.y - thumbIp.y : thumbIp.y - indexMcp.y;
+    const avgThumbExt = (thumbExtTip + thumbExtIp) / 2;
+    const thumbScore = avgThumbExt / handHeight;
+
+    if (thumbScore > 0.08) return "THUMBS_UP";
+    if (thumbScore > -0.02 && currentMode === "THUMBS_UP") return "THUMBS_UP";
+
+    if (thumbScore <= 0.03) return "FIST";
+    if (thumbScore <= 0.12 && currentMode === "FIST") return "FIST";
+
     return "NORMAL";
 }
 
@@ -469,6 +528,7 @@ function handleTransition(newMode) {
     if (newMode === "V_SIGN") {
         audioVsignSource = playAudio(audioVsignBuf, true);
         vsignStartTime = performance.now();
+        typewriterCacheText = "";
     }
     if (newMode === "THUMBS_UP") {
         thumbsAnimStart = performance.now();
@@ -538,17 +598,16 @@ function detectLoop() {
 
     if (results.landmarks && results.landmarks.length > 0) {
         const landmarks = results.landmarks[0];
-        
+
         if (calibrationState === "RECORDING") {
             calibrationManager.recordFrame(landmarks);
         }
-        
-        // Cek template matching jika sudah dikalibrasi
+
         let calibratedGesture = null;
         if (calibrationManager.isCalibrated()) {
             calibratedGesture = calibrationManager.matchGesture(landmarks);
         }
-        
+
         if (calibratedGesture) {
             detectedMode = calibratedGesture;
         } else {
@@ -614,74 +673,46 @@ function applyVsignEffect() {
     ctx.drawImage(offscreen, 0, 0, W, H);
 
     const elapsed = (performance.now() - vsignStartTime) / 1000;
-    drawTypewriter(TYPEWRITER_TEXT, elapsed, W, H);
-    drawFloatingHearts(W, H);
-}
 
-function drawTypewriter(text, elapsed, w, h) {
+    const totalChars = TYPEWRITER_TEXT.length;
+    const charProgress = elapsed / TYPEWRITER_CHAR_DELAY;
+    const visibleCount = Math.min(Math.floor(charProgress) + 1, totalChars);
+    const solidText = TYPEWRITER_TEXT.slice(0, visibleCount - 1);
+    const frac = charProgress - Math.floor(charProgress);
+    const alpha = visibleCount <= totalChars
+        ? Math.min(frac / (0.08 / TYPEWRITER_CHAR_DELAY), 1.0)
+        : 1.0;
+    const fadeChar = visibleCount <= totalChars ? TYPEWRITER_TEXT[visibleCount - 1] : null;
+
+    const cacheKey = solidText + (fadeChar || "") + Math.round(alpha * 10);
+    if (typewriterCacheText !== cacheKey) {
+        updateTypewriterCache(solidText, fadeChar, alpha);
+        typewriterCacheText = cacheKey;
+    }
+
     unmirror(() => {
-        const totalChars = text.length;
-        const charProgress = elapsed / TYPEWRITER_CHAR_DELAY;
-        const visibleCount = Math.min(Math.floor(charProgress) + 1, totalChars);
-        const solidText = text.slice(0, visibleCount - 1);
-
-        ctx.font = "bold 48px 'Segoe UI', sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-
-        const fullWidth = ctx.measureText(text).width;
-        const baseX = (w - fullWidth) / 2;
-        const baseY = h / 2;
-
-        if (solidText) {
-            ctx.strokeStyle = "#000";
-            ctx.lineWidth = 7;
-            ctx.strokeText(solidText, baseX + ctx.measureText(solidText).width / 2, baseY);
-            ctx.fillStyle = "#fff";
-            ctx.fillText(solidText, baseX + ctx.measureText(solidText).width / 2, baseY);
-        }
-
-        if (visibleCount <= totalChars) {
-            const fadeChar = text[visibleCount - 1];
-            const prefixW = ctx.measureText(solidText).width;
-            const charX = baseX + prefixW;
-            const frac = charProgress - Math.floor(charProgress);
-            const alpha = Math.min(frac / (0.08 / TYPEWRITER_CHAR_DELAY), 1.0);
-
-            ctx.globalAlpha = alpha;
-            ctx.strokeStyle = "#000";
-            ctx.lineWidth = 7;
-            ctx.strokeText(fadeChar, charX + ctx.measureText(fadeChar).width / 2, baseY);
-            ctx.fillStyle = "#fff";
-            ctx.fillText(fadeChar, charX + ctx.measureText(fadeChar).width / 2, baseY);
-            ctx.globalAlpha = 1.0;
-        }
+        ctx.drawImage(typewriterCacheCanvas, 0, 0);
     });
+
+    if (heartSprite) {
+        drawFloatingHearts(W, H);
+    }
 }
 
 function drawFloatingHearts(w, h) {
     const now = performance.now() / 1000;
     unmirror(() => {
-        for (let i = 0; i < 6; i++) {
-            const phase = (now * 0.7 + i * 1.0) % 6;
-            const x = w * 0.15 + (i * w * 0.14);
+        for (let i = 0; i < 4; i++) {
+            const phase = (now * 0.6 + i * 1.5) % 6;
+            const x = w * 0.18 + (i * w * 0.2);
             const y = h - phase * (h / 6);
-            const size = 14 + Math.sin(now * 3 + i) * 3;
+            const scale = 0.5 + Math.sin(now * 2 + i) * 0.15;
             const alpha = Math.max(0, 1 - phase / 6);
-            drawHeart(x, y, size, `rgba(255, ${60 + i * 25}, ${80 + i * 18}, ${alpha})`);
+            ctx.globalAlpha = alpha;
+            ctx.drawImage(heartSprite, x - 16 * scale, y - 16 * scale, 32 * scale, 32 * scale);
+            ctx.globalAlpha = 1.0;
         }
     });
-}
-
-function drawHeart(x, y, size, color) {
-    ctx.save();
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.moveTo(x, y + size * 0.6);
-    ctx.bezierCurveTo(x - size * 1.2, y - size * 0.2, x - size * 0.6, y - size, x, y - size * 0.4);
-    ctx.bezierCurveTo(x + size * 0.6, y - size, x + size * 1.2, y - size * 0.2, x, y + size * 0.6);
-    ctx.fill();
-    ctx.restore();
 }
 
 function applyThumbsUpEffect() {
