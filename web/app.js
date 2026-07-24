@@ -5,9 +5,10 @@ const MUSIC_URL = "FOTO%20KITA%20BLUR%20-%20SAL%20PRIADI.mp3";
 const MUSIC_URL_2 = "Hidup%20jokowi%20%20sound%20meme.mp3";
 
 const FADE_DURATION = 0.4;
-const DEBOUNCE_FRAMES = 3;
+const DEBOUNCE_FRAMES = 1;
 const TYPEWRITER_CHAR_DELAY = 0.12;
 const TYPEWRITER_TEXT = "Foto kita blur";
+const THUMB_THRESHOLD = 0.10;
 
 const W = 640;
 const H = 480;
@@ -36,8 +37,52 @@ let audioFistSource = null;
 let audioVsignBuf = null;
 let audioFistBuf = null;
 
+let photoBoothState = "IDLE";
+let countdownValue = 0;
+let capturedImageData = null;
+let currentFrameIndex = 0;
+let frameImages = [];
+const frameImagePaths = ["frames/frame1.png", "frames/frame2.png"];
+let countdownInterval = null;
+let countdownBtn = null;
+let downloadBtn = null;
+
 const FINGER_TIPS = [8, 12, 16, 20];
 const FINGER_PIPS = [6, 10, 14, 18];
+
+// Prefetch promises - start loading immediately on module load
+let prefetchedVision = null;
+let prefetchedAudioCtx = null;
+let prefetchedAudioVsign = null;
+let prefetchedAudioFist = null;
+
+function prefetchAssets() {
+    // Create audio context early
+    prefetchedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // Prefetch vision wasm files
+    prefetchedVision = FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm"
+    ).catch(e => { console.warn("Vision prefetch failed:", e); return null; });
+
+    // Prefetch audio buffers in parallel
+    prefetchedAudioVsign = prefetchedAudioCtx
+        ? fetch(MUSIC_URL)
+            .then(r => r.arrayBuffer())
+            .then(b => prefetchedAudioCtx.decodeAudioData(b))
+            .catch(e => { console.warn("Audio 1 prefetch failed:", e); return null; })
+        : Promise.resolve(null);
+
+    prefetchedAudioFist = prefetchedAudioCtx
+        ? fetch(MUSIC_URL_2)
+            .then(r => r.arrayBuffer())
+            .then(b => prefetchedAudioCtx.decodeAudioData(b))
+            .catch(e => { console.warn("Audio 2 prefetch failed:", e); return null; })
+        : Promise.resolve(null);
+}
+
+// Start prefetching immediately when module loads
+prefetchAssets();
 
 function unmirror(fn) {
     ctx.save();
@@ -72,6 +117,81 @@ function initPreview() {
     };
 }
 initPreview();
+
+function initPhotoBooth() {
+    countdownBtn = document.getElementById("countdownBtn");
+    downloadBtn = document.getElementById("downloadBtn");
+
+    countdownBtn.addEventListener("click", startPhotoBoothCountdown);
+    downloadBtn.addEventListener("click", downloadPhoto);
+
+    for (const path of frameImagePaths) {
+        const img = new Image();
+        img.src = path;
+        frameImages.push(img);
+    }
+}
+initPhotoBooth();
+
+function startPhotoBoothCountdown() {
+    photoBoothState = "COUNTDOWN";
+    countdownValue = 3;
+    countdownBtn.style.display = "none";
+    downloadBtn.style.display = "none";
+
+    countdownInterval = setInterval(() => {
+        countdownValue--;
+        if (countdownValue <= 0) {
+            clearInterval(countdownInterval);
+            capturePhoto();
+        }
+    }, 1000);
+}
+
+function capturePhoto() {
+    const tempCanvas = document.createElement("canvas");
+    tempCanvas.width = W;
+    tempCanvas.height = H;
+    const tempCtx = tempCanvas.getContext("2d");
+
+    tempCtx.save();
+    tempCtx.translate(W, 0);
+    tempCtx.scale(-1, 1);
+    tempCtx.drawImage(video, 0, 0, W, H);
+    tempCtx.restore();
+
+    capturedImageData = tempCanvas.toDataURL("image/png");
+    photoBoothState = "CAPTURED_PREVIEW";
+    downloadBtn.style.display = "inline-block";
+    currentFrameIndex = (currentFrameIndex + 1) % frameImages.length;
+}
+
+function downloadPhoto() {
+    const tempCanvas = document.createElement("canvas");
+    tempCanvas.width = W;
+    tempCanvas.height = H;
+    const tempCtx = tempCanvas.getContext("2d");
+
+    const img = new Image();
+    img.src = capturedImageData;
+    img.onload = () => {
+        tempCtx.drawImage(img, 0, 0, W, H);
+        if (frameImages[currentFrameIndex].complete) {
+            tempCtx.drawImage(frameImages[currentFrameIndex], 0, 0, W, H);
+        }
+        const link = document.createElement("a");
+        link.download = "photobooth_" + Date.now() + ".png";
+        link.href = tempCanvas.toDataURL("image/png");
+        link.click();
+    };
+}
+
+function resetPhotoBooth() {
+    photoBoothState = "IDLE";
+    capturedImageData = null;
+    countdownBtn.style.display = "inline-block";
+    downloadBtn.style.display = "none";
+}
 
 export async function startApp() {
     const btn = document.getElementById("startBtn");
@@ -108,40 +228,30 @@ export async function startApp() {
     video.style.display = "none";
     loading.textContent = "Loading hand detection model...";
 
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
+    // Use prefetched audio context and buffers
+    audioCtx = prefetchedAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
     const [vision] = await Promise.all([
-        FilesetResolver.forVisionTasks(
+        prefetchedVision || FilesetResolver.forVisionTasks(
             "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm"
         ),
-        loadAudio(MUSIC_URL).then(buf => { audioVsignBuf = buf; }),
-        loadAudio(MUSIC_URL_2).then(buf => { audioFistBuf = buf; })
+        prefetchedAudioVsign.then(buf => { audioVsignBuf = buf; }),
+        prefetchedAudioFist.then(buf => { audioFistBuf = buf; })
     ]);
 
     handLandmarker = await HandLandmarker.createFromOptions(vision, {
         baseOptions: { modelAssetPath: MODEL_URL, delegate: "GPU" },
         runningMode: "VIDEO",
         numHands: 1,
-        minHandDetectionConfidence: 0.7,
-        minHandPresenceConfidence: 0.7,
-        minTrackingConfidence: 0.7
+        minHandDetectionConfidence: 0.5,
+        minHandPresenceConfidence: 0.5,
+        minTrackingConfidence: 0.5
     });
 
     modelReady = true;
     loading.style.display = "none";
+    countdownBtn.style.display = "inline-block";
 
     detectLoop();
-}
-
-async function loadAudio(url) {
-    try {
-        const resp = await fetch(url);
-        const buf = await resp.arrayBuffer();
-        return await audioCtx.decodeAudioData(buf);
-    } catch (e) {
-        console.warn("Audio load failed:", e);
-        return null;
-    }
 }
 
 function playAudio(buffer, loop) {
@@ -160,24 +270,40 @@ function stopAudio(source) {
     return null;
 }
 
+function isHandUpright(landmarks) {
+    return landmarks[0].y > landmarks[9].y;
+}
+
 function fingerUp(landmarks, tipIdx, pipIdx) {
-    return landmarks[tipIdx].y < landmarks[pipIdx].y;
+    const dipIdx = tipIdx - 1;
+    const upright = isHandUpright(landmarks);
+    return upright
+        ? landmarks[tipIdx].y < landmarks[dipIdx].y
+        : landmarks[tipIdx].y > landmarks[dipIdx].y;
 }
 
 function detectGesture(landmarks) {
     const fingersUp = FINGER_TIPS.map((tip, i) => fingerUp(landmarks, tip, FINGER_PIPS[i]));
     const [indexUp, middleUp, ringUp, pinkyUp] = fingersUp;
 
-    if (indexUp && middleUp && !ringUp && !pinkyUp) return "V_SIGN";
+    if (indexUp && middleUp && !(ringUp && pinkyUp)) return "V_SIGN";
 
+    const upright = isHandUpright(landmarks);
     const thumbTip = landmarks[4];
+    const thumbIp = landmarks[3];
     const indexMcp = landmarks[5];
     const wrist = landmarks[0];
     const handHeight = Math.abs(wrist.y - indexMcp.y);
     if (handHeight > 0.01) {
-        const thumbAbove = indexMcp.y - thumbTip.y;
-        if (!fingersUp.some(f => f) && thumbAbove > handHeight * 0.3) return "THUMBS_UP";
-        if (!fingersUp.some(f => f) && thumbAbove <= handHeight * 0.3) return "FIST";
+        const thumbExtTip = upright
+            ? indexMcp.y - thumbTip.y
+            : thumbTip.y - indexMcp.y;
+        const thumbExtIp = upright
+            ? indexMcp.y - thumbIp.y
+            : thumbIp.y - indexMcp.y;
+        const avgThumbExt = (thumbExtTip + thumbExtIp) / 2;
+        if (!indexUp && !middleUp && avgThumbExt > handHeight * THUMB_THRESHOLD) return "THUMBS_UP";
+        if (!indexUp && !middleUp && avgThumbExt <= handHeight * THUMB_THRESHOLD) return "FIST";
     }
     return "NORMAL";
 }
@@ -207,6 +333,10 @@ function handleTransition(newMode) {
     if (newMode === "FIST") {
         audioFistSource = playAudio(audioFistBuf, true);
         fistAnimStart = performance.now();
+
+        if (photoBoothState === "CAPTURED_PREVIEW") {
+            resetPhotoBooth();
+        }
     }
     currentMode = newMode;
 }
@@ -225,6 +355,37 @@ function detectLoop() {
         ctx.fillStyle = "#fff";
         ctx.textAlign = "center";
         ctx.fillText("Loading model...", W / 2, H / 2);
+        requestAnimationFrame(detectLoop);
+        return;
+    }
+
+    if (photoBoothState === "COUNTDOWN") {
+        ctx.drawImage(video, 0, 0, W, H);
+        ctx.fillStyle = "white";
+        ctx.font = "bold 100px 'Segoe UI', sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(countdownValue.toString(), W / 2, H / 2);
+        requestAnimationFrame(detectLoop);
+        return;
+    }
+
+    if (photoBoothState === "CAPTURED_PREVIEW") {
+        if (capturedImageData) {
+            const img = new Image();
+            img.src = capturedImageData;
+            img.onload = () => {
+                ctx.drawImage(img, 0, 0, W, H);
+                if (frameImages[currentFrameIndex].complete) {
+                    ctx.drawImage(frameImages[currentFrameIndex], 0, 0, W, H);
+                }
+                ctx.fillStyle = "white";
+                ctx.font = "bold 20px 'Segoe UI', sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText("Click Download or make FIST to reset", W / 2, H - 40);
+            };
+        }
         requestAnimationFrame(detectLoop);
         return;
     }

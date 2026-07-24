@@ -21,14 +21,19 @@
                     <span id="blurVal">14px</span>
                     <canvas id="preview" width="200" height="150"></canvas>
                 </div>
-                <button onclick="startApp()">Start Camera</button>
-            </div>
-        </div>
+      <button onclick="startApp()">Start Camera</button>
+      <button id="countdownBtn" style="display:none;">Start Photobooth</button>
+      <button id="downloadBtn" style="display:none;">Download Photo</button>
+    </div>
+  </div>
         <div id="loading" class="loading" style="display:none;">Loading model...</div>
     </div>
 
     <script type="module" src="app.js"></script>
 <script>
+        if ("serviceWorker" in navigator) {
+            navigator.serviceWorker.register("./sw.js").catch(() => {});
+        }
         document.addEventListener("keydown", (e) => {
             if (e.key === "q" || e.key === "Q" || e.key === "Escape") {
                 const video = document.getElementById("webcam");
