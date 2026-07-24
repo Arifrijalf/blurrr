@@ -51,7 +51,7 @@ let calibrationBtn = null;
 let emaLandmarks = null;
 const EMA_ALPHA = 0.3;
 
-let calibrationManager = null;
+let calibrationManager = new window.CalibrationManager();
 
 let heartSprite = null;
 let typewriterCacheCanvas = null;
@@ -390,7 +390,7 @@ function hideCalibrationOverlay() {
     if (overlay) overlay.style.display = "none";
 }
 
-export async function startApp() {
+async function startApp() {
     const btn = document.getElementById("startBtn");
     const loading = document.getElementById("loading");
 
@@ -573,6 +573,9 @@ function detectLoop() {
 
     if (photoBoothState === "COUNTDOWN") {
         ctx.drawImage(video, 0, 0, W, H);
+        if (frameImages.length > 0 && frameImages[currentFrameIndex] && frameImages[currentFrameIndex].complete) {
+            ctx.drawImage(frameImages[currentFrameIndex], 0, 0, W, H);
+        }
         ctx.fillStyle = "white";
         ctx.font = "bold 100px 'Segoe UI', sans-serif";
         ctx.textAlign = "center";
@@ -679,6 +682,10 @@ function renderEffect() {
         applyThumbsUpEffect();
     } else if (currentMode === "FIST") {
         applyFistEffect();
+    }
+
+    if (frameImages.length > 0 && frameImages[currentFrameIndex] && frameImages[currentFrameIndex].complete) {
+        ctx.drawImage(frameImages[currentFrameIndex], 0, 0, W, H);
     }
 
     if (lastLandmarks && (stableMode === "NORMAL" || currentMode === "NORMAL")) {
@@ -817,5 +824,15 @@ function drawStatus() {
         ctx.fillText(s.text, 10, 16);
     });
 }
+
+document.addEventListener("keydown", (e) => {
+    if (e.key === "[") {
+        currentFrameIndex = (currentFrameIndex - 1 + frameImages.length) % frameImages.length;
+        e.preventDefault();
+    } else if (e.key === "]") {
+        currentFrameIndex = (currentFrameIndex + 1) % frameImages.length;
+        e.preventDefault();
+    }
+});
 
 window.startApp = startApp;
