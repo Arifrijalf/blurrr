@@ -28,6 +28,7 @@ from src.fotokitablur.constants import (
 
 from src.fotokitablur.audio import AudioManager
 from src.fotokitablur.detector import GestureDetector
+from src.fotokitablur.calibration import CalibrationManager
 from src.fotokitablur.renderer import EffectRenderer, HandLandmarkerDrawer
 
 
@@ -49,6 +50,8 @@ class HandGestureApp:
         self.drawer = HandLandmarkerDrawer()
 
         self.gesture_detector = GestureDetector()
+        self.calibration_manager = CalibrationManager()
+        self.calibration_manager.load()
         self.renderer = EffectRenderer()
         self.audio = AudioManager()
         self.audio.load("vsign", MUSIC_PATH)
@@ -57,6 +60,10 @@ class HandGestureApp:
         self.current_mode: GestureMode = GestureMode.NORMAL
         self._thumbs_first_frame = False
         self._fist_first_frame = False
+
+        self.calibrating = False
+        self.calibration_countdown = 0
+        self.calibration_next_gesture = None
 
     def _handle_mode_transition(self, new_mode: GestureMode):
         if new_mode == self.current_mode:
@@ -144,7 +151,11 @@ class HandGestureApp:
 
             if results.hand_landmarks:
                 hand_landmarks = results.hand_landmarks[0]
-                detected_mode = self.gesture_detector.detect(hand_landmarks)
+                
+                if self.calibrating:
+                    self.calibration_manager.record_frame(hand_landmarks)
+                
+                detected_mode = self.gesture_detector.detect(hand_landmarks, self.calibration_manager)
 
                 if detected_mode == GestureMode.NORMAL:
                     self.drawer.draw_landmarks(frame, hand_landmarks, w, h)
@@ -162,12 +173,36 @@ class HandGestureApp:
 
             self.renderer.draw_status(frame, self.current_mode)
             self.renderer.draw_hint(frame)
+            
+            if self.calibrating:
+                self.calibration_countdown -= 1/30
+                if self.calibration_countdown <= 0:
+                    self.calibration_manager.stop_recording()
+                    self.calibration_manager.save()
+                    next_gesture = self.calibration_manager.next_step()
+                    if next_gesture:
+                        self.calibration_next_gesture = next_gesture
+                        self.calibration_countdown = 3
+                        print(f"[INFO] Next calibration: {next_gesture}")
+                    else:
+                        self.calibrating = False
+                        print("[INFO] Calibration completed!")
+                else:
+                    progress = int((3 - self.calibration_countdown) / 3 * 100)
+                    self.renderer.draw_calibration_overlay(frame, f"Pose: {self.calibration_next_gesture}", progress)
 
             cv2.imshow("Hand Gesture Detection", frame)
 
             key = cv2.waitKey(1) & 0xFF
             if key in (ord('q'), ord('Q'), 27):
                 break
+            
+            if key == ord('c') and not self.calibrating:
+                self.calibrating = True
+                self.calibration_manager.start_calibration()
+                self.calibration_countdown = 3
+                self.calibration_next_gesture = self.calibration_manager.current_step_name()
+                print(f"[INFO] Calibration started. Pose: {self.calibration_next_gesture}")
 
         self.audio.stop_all()
         cap.release()

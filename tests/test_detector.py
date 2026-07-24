@@ -6,9 +6,10 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from src.fotokitablur.detector import GestureDetector, GestureMode
 
 class MockLandmark:
-    def __init__(self, x, y):
+    def __init__(self, x, y, z=0.0):
         self.x = x
         self.y = y
+        self.z = z
 
 def create_landmarks(lm_list):
     return [MockLandmark(x, y) for x, y in lm_list]

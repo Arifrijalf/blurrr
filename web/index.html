@@ -13,6 +13,14 @@
             <div class="video-wrapper">
                 <video id="webcam" autoplay playsinline></video>
                 <canvas id="output"></canvas>
+                <div id="calibrationOverlay">
+                    <div>KALIBRASI</div>
+                    <div id="calibrationStep" class="step-name">Pose: V_SIGN</div>
+                    <div id="calibrationTimer" class="timer">3</div>
+                    <div class="progress-bar">
+                        <div id="calibrationProgress" class="progress-fill"></div>
+                    </div>
+                </div>
             </div>
             <div id="startBtn" class="start-btn">
                 <div class="controls">
@@ -21,16 +29,17 @@
                     <span id="blurVal">14px</span>
                     <canvas id="preview" width="200" height="150"></canvas>
                 </div>
-      <button onclick="startApp()">Start Camera</button>
-      <button id="countdownBtn" style="display:none;">Start Photobooth</button>
-      <button id="downloadBtn" style="display:none;">Download Photo</button>
-    </div>
-  </div>
+                <button onclick="startApp()">Start Camera</button>
+                <button id="countdownBtn" style="display:none;">Start Photobooth</button>
+                <button id="downloadBtn" style="display:none;">Download Photo</button>
+                <button id="calibrationBtn" style="display:none;">Kalibrasi</button>
+            </div>
+        </div>
         <div id="loading" class="loading" style="display:none;">Loading model...</div>
     </div>
 
     <script type="module" src="app.js"></script>
-<script>
+    <script>
         if ("serviceWorker" in navigator) {
             navigator.serviceWorker.register("./sw.js").catch(() => {});
         }
@@ -46,6 +55,6 @@
                 document.getElementById("preview").style.display = "block";
             }
         });
-        </script>
+    </script>
 </body>
 </html>

@@ -134,3 +134,49 @@ h1 {
     0%, 100% { opacity: 0.5; }
     50% { opacity: 1; }
 }
+
+#calibrationOverlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.85);
+    color: white;
+    padding: 30px 40px;
+    border-radius: 12px;
+    text-align: center;
+    font-size: 24px;
+    font-weight: 600;
+    z-index: 100;
+    display: none;
+    border: 2px solid #ffd93d;
+    box-shadow: 0 4px 20px rgba(255, 217, 61, 0.3);
+}
+
+#calibrationOverlay .step-name {
+    color: #ffd93d;
+    font-size: 28px;
+    margin: 10px 0;
+}
+
+#calibrationOverlay .timer {
+    font-size: 48px;
+    color: #6bcb77;
+    margin: 10px 0;
+}
+
+#calibrationOverlay .progress-bar {
+    width: 200px;
+    height: 8px;
+    background: #333;
+    border-radius: 4px;
+    margin: 15px auto;
+    overflow: hidden;
+}
+
+#calibrationOverlay .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    width: 0%;
+    transition: width 0.3s ease;
+}

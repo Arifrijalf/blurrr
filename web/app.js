@@ -46,6 +46,22 @@ const frameImagePaths = ["frames/frame1.png", "frames/frame2.png"];
 let countdownInterval = null;
 let countdownBtn = null;
 let downloadBtn = null;
+let calibrationBtn = null;
+
+let emaLandmarks = null;
+const EMA_ALPHA = 0.3;
+
+let calibrationManager = null;
+
+function smoothLandmarks(raw) {
+    if (!emaLandmarks) emaLandmarks = raw.map(l => ({...l}));
+    raw.forEach((l, i) => {
+        emaLandmarks[i].x = emaLandmarks[i].x * (1 - EMA_ALPHA) + l.x * EMA_ALPHA;
+        emaLandmarks[i].y = emaLandmarks[i].y * (1 - EMA_ALPHA) + l.y * EMA_ALPHA;
+        emaLandmarks[i].z = emaLandmarks[i].z * (1 - EMA_ALPHA) + l.z * EMA_ALPHA;
+    });
+    return emaLandmarks;
+}
 
 const FINGER_TIPS = [8, 12, 16, 20];
 const FINGER_PIPS = [6, 10, 14, 18];
@@ -121,9 +137,11 @@ initPreview();
 function initPhotoBooth() {
     countdownBtn = document.getElementById("countdownBtn");
     downloadBtn = document.getElementById("downloadBtn");
+    calibrationBtn = document.getElementById("calibrationBtn");
 
     countdownBtn.addEventListener("click", startPhotoBoothCountdown);
     downloadBtn.addEventListener("click", downloadPhoto);
+    calibrationBtn.addEventListener("click", startCalibration);
 
     for (const path of frameImagePaths) {
         const img = new Image();
@@ -191,6 +209,111 @@ function resetPhotoBooth() {
     capturedImageData = null;
     countdownBtn.style.display = "inline-block";
     downloadBtn.style.display = "none";
+}
+
+let calibrationState = "IDLE"; // IDLE, COUNTDOWN, RECORDING, DONE
+let calibrationStep = 0;
+let calibrationCountdown = 0;
+let calibrationCountdownInterval = null;
+let calibrationRecordingInterval = null;
+
+function startCalibration() {
+    calibrationState = "COUNTDOWN";
+    calibrationStep = 0;
+    calibrationCountdown = 3;
+    calibrationManager.startCalibration();
+    
+    countdownBtn.style.display = "none";
+    downloadBtn.style.display = "none";
+    calibrationBtn.style.display = "none";
+    
+    showCalibrationOverlay();
+    
+    calibrationCountdownInterval = setInterval(() => {
+        calibrationCountdown--;
+        if (calibrationCountdown <= 0) {
+            clearInterval(calibrationCountdownInterval);
+            startRecordingStep();
+        }
+    }, 1000);
+}
+
+function startRecordingStep() {
+    calibrationState = "RECORDING";
+    calibrationManager.startRecordingStep();
+    
+    let recordingTime = 0;
+    const maxRecordingTime = 3;
+    
+    updateCalibrationOverlay("Recording " + calibrationManager.currentStepName() + "...", maxRecordingTime, 0);
+    
+    calibrationRecordingInterval = setInterval(() => {
+        recordingTime++;
+        const progress = (recordingTime / maxRecordingTime) * 100;
+        updateCalibrationOverlay("Recording " + calibrationManager.currentStepName() + "...", maxRecordingTime - recordingTime, progress);
+        
+        if (recordingTime >= maxRecordingTime) {
+            clearInterval(calibrationRecordingInterval);
+            calibrationManager.stopRecording();
+            
+            const nextStep = calibrationManager.nextStep();
+            if (nextStep) {
+                calibrationStep++;
+                calibrationCountdown = 3;
+                calibrationState = "COUNTDOWN";
+                
+                updateCalibrationOverlay("Next: " + nextStep, 3, 100);
+                
+                calibrationCountdownInterval = setInterval(() => {
+                    calibrationCountdown--;
+                    updateCalibrationOverlay("Next: " + nextStep, calibrationCountdown, 100);
+                    if (calibrationCountdown <= 0) {
+                        clearInterval(calibrationCountdownInterval);
+                        startRecordingStep();
+                    }
+                }, 1000);
+            } else {
+                finishCalibration();
+            }
+        }
+    }, 1000);
+}
+
+function finishCalibration() {
+    calibrationState = "DONE";
+    calibrationManager.save();
+    calibrationManager.load();
+    
+    hideCalibrationOverlay();
+    
+    countdownBtn.style.display = "inline-block";
+    downloadBtn.style.display = "none";
+    calibrationBtn.style.display = "inline-block";
+}
+
+function showCalibrationOverlay() {
+    const overlay = document.getElementById("calibrationOverlay");
+    const stepEl = document.getElementById("calibrationStep");
+    const timerEl = document.getElementById("calibrationTimer");
+    const progressEl = document.getElementById("calibrationProgress");
+    overlay.style.display = "block";
+    stepEl.textContent = "Pose: " + calibrationManager.currentStepName();
+    timerEl.textContent = "3";
+    progressEl.style.width = "0%";
+}
+
+function updateCalibrationOverlay(text, timeLeft, progress) {
+    const timerEl = document.getElementById("calibrationTimer");
+    const stepEl = document.getElementById("calibrationStep");
+    const progressEl = document.getElementById("calibrationProgress");
+    if (timerEl) timerEl.textContent = timeLeft;
+    if (stepEl) stepEl.textContent = text;
+    if (progressEl) progressEl.style.width = progress + "%";
+}
+
+function hideCalibrationOverlay() {
+    const overlay = document.getElementById("calibrationOverlay");
+    if (overlay) overlay.style.display = "none";
 }
 
 export async function startApp() {
@@ -286,24 +409,35 @@ function detectGesture(landmarks) {
     const fingersUp = FINGER_TIPS.map((tip, i) => fingerUp(landmarks, tip, FINGER_PIPS[i]));
     const [indexUp, middleUp, ringUp, pinkyUp] = fingersUp;
 
-    if (indexUp && middleUp && !(ringUp && pinkyUp)) return "V_SIGN";
+    // Hitung skor gesture (continuous)
+    const handHeight = Math.abs(landmarks[0].y - landmarks[9].y);
+    const indexConf = (landmarks[5].y - landmarks[8].y) / handHeight;
+    const middleConf = (landmarks[9].y - landmarks[12].y) / handHeight;
+    
+    // V-SIGN dengan Hysteresis
+    let vSignScore = (indexConf + middleConf) / 2;
+    if (vSignScore > 0.15) return "V_SIGN";
+    if (vSignScore < 0.05 && currentMode === "V_SIGN") return "V_SIGN";
 
     const upright = isHandUpright(landmarks);
     const thumbTip = landmarks[4];
     const thumbIp = landmarks[3];
     const indexMcp = landmarks[5];
     const wrist = landmarks[0];
-    const handHeight = Math.abs(wrist.y - indexMcp.y);
+    
     if (handHeight > 0.01) {
-        const thumbExtTip = upright
-            ? indexMcp.y - thumbTip.y
-            : thumbTip.y - indexMcp.y;
-        const thumbExtIp = upright
-            ? indexMcp.y - thumbIp.y
-            : thumbIp.y - indexMcp.y;
+        const thumbExtTip = upright ? indexMcp.y - thumbTip.y : thumbTip.y - indexMcp.y;
+        const thumbExtIp = upright ? indexMcp.y - thumbIp.y : thumbIp.y - indexMcp.y;
         const avgThumbExt = (thumbExtTip + thumbExtIp) / 2;
-        if (!indexUp && !middleUp && avgThumbExt > handHeight * THUMB_THRESHOLD) return "THUMBS_UP";
-        if (!indexUp && !middleUp && avgThumbExt <= handHeight * THUMB_THRESHOLD) return "FIST";
+        const thumbScore = avgThumbExt / handHeight;
+        
+        // THUMBS_UP dengan Hysteresis
+        if (thumbScore > 0.10) return "THUMBS_UP";
+        if (thumbScore > 0.00 && currentMode === "THUMBS_UP") return "THUMBS_UP";
+        
+        // FIST dengan Hysteresis
+        if (thumbScore <= 0.05) return "FIST";
+        if (thumbScore <= 0.15 && currentMode === "FIST") return "FIST";
     }
     return "NORMAL";
 }
@@ -395,7 +529,22 @@ function detectLoop() {
 
     if (results.landmarks && results.landmarks.length > 0) {
         const landmarks = results.landmarks[0];
-        detectedMode = detectGesture(landmarks);
+        
+        if (calibrationState === "RECORDING") {
+            calibrationManager.recordFrame(landmarks);
+        }
+        
+        // Cek template matching jika sudah dikalibrasi
+        let calibratedGesture = null;
+        if (calibrationManager.isCalibrated()) {
+            calibratedGesture = calibrationManager.matchGesture(landmarks);
+        }
+        
+        if (calibratedGesture) {
+            detectedMode = calibratedGesture;
+        } else {
+            detectedMode = detectGesture(landmarks);
+        }
 
         if (stableMode === "NORMAL" || currentMode === "NORMAL") {
             drawLandmarks(landmarks);

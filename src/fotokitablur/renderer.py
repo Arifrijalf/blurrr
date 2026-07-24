@@ -164,10 +164,29 @@ class EffectRenderer:
 
     def draw_hint(self, frame: np.ndarray):
         h, w = frame.shape[:2]
-        hint = "Q / ESC: Keluar"
+        hint = "Q / ESC: Keluar | C: Kalibrasi"
         (tw, _), _ = cv2.getTextSize(hint, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
         cv2.putText(frame, hint, (w - tw - 10, h - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.45, (160, 160, 160), 1, cv2.LINE_AA)
+
+    def draw_calibration_overlay(self, frame: np.ndarray, text: str, progress: int):
+        h, w = frame.shape[:2]
+        overlay = frame.copy()
+        cv2.rectangle(overlay, (0, 0), (w, h), (0, 0, 0), -1)
+        cv2.addWeighted(overlay, 0.5, frame, 0.5, 0, frame)
+        
+        cv2.putText(frame, "KALIBRASI", (w//2 - 100, h//2 - 60),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 255), 3, cv2.LINE_AA)
+        
+        cv2.putText(frame, text, (w//2 - 150, h//2),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2, cv2.LINE_AA)
+        
+        bar_width = 300
+        bar_height = 30
+        bar_x = (w - bar_width) // 2
+        bar_y = h//2 + 40
+        cv2.rectangle(frame, (bar_x, bar_y), (bar_x + bar_width, bar_y + bar_height), (50, 50, 50), -1)
+        cv2.rectangle(frame, (bar_x, bar_y), (bar_x + int(bar_width * progress / 100), bar_y + bar_height), (0, 255, 0), -1)
 
 
 class HandLandmarkerDrawer:
