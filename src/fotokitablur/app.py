@@ -179,16 +179,20 @@ class HandGestureApp:
             if self.calibrating:
                 self.calibration_countdown -= 1/30
                 if self.calibration_countdown <= 0:
-                    self.calibration_manager.stop_recording()
-                    self.calibration_manager.save()
-                    next_gesture = self.calibration_manager.next_step()
-                    if next_gesture:
-                        self.calibration_next_gesture = next_gesture
+                    if not self.calibration_manager.recording:
+                        self.calibration_manager.start_recording_step()
                         self.calibration_countdown = CALIBRATION_DURATION
-                        print(f"[INFO] Next calibration: {next_gesture}")
                     else:
-                        self.calibrating = False
-                        print("[INFO] Calibration completed!")
+                        self.calibration_manager.stop_recording()
+                        self.calibration_manager.save()
+                        next_gesture = self.calibration_manager.next_step()
+                        if next_gesture:
+                            self.calibration_next_gesture = next_gesture
+                            self.calibration_countdown = CALIBRATION_DURATION
+                            print(f"[INFO] Next calibration: {next_gesture}")
+                        else:
+                            self.calibrating = False
+                            print("[INFO] Calibration completed!")
                 else:
                     progress = int((CALIBRATION_DURATION - self.calibration_countdown) / CALIBRATION_DURATION * 100)
                     self.renderer.draw_calibration_overlay(frame, f"Pose: {self.calibration_next_gesture}", progress, self._show_merge_info)
