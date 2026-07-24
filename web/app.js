@@ -59,7 +59,7 @@ let typewriterCacheCtx = null;
 let typewriterCacheText = "";
 let typewriterCacheWidth = 0;
 
-const DETECT_EVERY_N_FRAMES = 2;
+const DETECT_EVERY_N_FRAMES = 3;
 let lastLandmarks = null;
 let lastDetectedMode = "NORMAL";
 
@@ -526,24 +526,28 @@ function debounce(rawMode) {
 function handleTransition(newMode) {
     if (newMode === currentMode) return;
 
-    if (currentMode === "V_SIGN") audioVsignSource = stopAudio(audioVsignSource);
-    if (currentMode === "FIST") audioFistSource = stopAudio(audioFistSource);
+    try {
+        if (currentMode === "V_SIGN") audioVsignSource = stopAudio(audioVsignSource);
+        if (currentMode === "FIST") audioFistSource = stopAudio(audioFistSource);
 
-    if (newMode === "V_SIGN") {
-        audioVsignSource = playAudio(audioVsignBuf, true);
-        vsignStartTime = performance.now();
-        typewriterCacheText = "";
-    }
-    if (newMode === "THUMBS_UP") {
-        thumbsAnimStart = performance.now();
-    }
-    if (newMode === "FIST") {
-        audioFistSource = playAudio(audioFistBuf, true);
-        fistAnimStart = performance.now();
-
-        if (photoBoothState === "CAPTURED_PREVIEW") {
-            resetPhotoBooth();
+        if (newMode === "V_SIGN") {
+            audioVsignSource = playAudio(audioVsignBuf, true);
+            vsignStartTime = performance.now();
+            typewriterCacheText = "";
         }
+        if (newMode === "THUMBS_UP") {
+            thumbsAnimStart = performance.now();
+        }
+        if (newMode === "FIST") {
+            audioFistSource = playAudio(audioFistBuf, true);
+            fistAnimStart = performance.now();
+
+            if (photoBoothState === "CAPTURED_PREVIEW") {
+                resetPhotoBooth();
+            }
+        }
+    } catch (e) {
+        console.warn("Transition error:", e);
     }
     currentMode = newMode;
 }
@@ -623,10 +627,6 @@ function detectLoop() {
             }
 
             lastDetectedMode = detectedMode;
-
-            if (stableMode === "NORMAL" || currentMode === "NORMAL") {
-                drawLandmarks(landmarks);
-            }
         }
 
         const debounced = debounce(detectedMode);
@@ -634,9 +634,6 @@ function detectLoop() {
     } else {
         if (lastLandmarks && calibrationState === "RECORDING") {
             calibrationManager.recordFrame(lastLandmarks);
-        }
-        if (lastLandmarks && (stableMode === "NORMAL" || currentMode === "NORMAL")) {
-            drawLandmarks(lastLandmarks);
         }
     }
 
@@ -654,19 +651,19 @@ function drawLandmarks(landmarks) {
 
     ctx.strokeStyle = "#ffff00";
     ctx.lineWidth = 2;
+    ctx.beginPath();
     for (const [a, b] of connections) {
-        ctx.beginPath();
         ctx.moveTo(landmarks[a].x * W, landmarks[a].y * H);
         ctx.lineTo(landmarks[b].x * W, landmarks[b].y * H);
-        ctx.stroke();
     }
+    ctx.stroke();
 
     ctx.fillStyle = "#00c8ff";
+    ctx.beginPath();
     for (const lm of landmarks) {
-        ctx.beginPath();
         ctx.arc(lm.x * W, lm.y * H, 3, 0, Math.PI * 2);
-        ctx.fill();
     }
+    ctx.fill();
 }
 
 function renderEffect() {
@@ -678,6 +675,10 @@ function renderEffect() {
         applyThumbsUpEffect();
     } else if (currentMode === "FIST") {
         applyFistEffect();
+    }
+
+    if (lastLandmarks && (stableMode === "NORMAL" || currentMode === "NORMAL")) {
+        drawLandmarks(lastLandmarks);
     }
 
     drawStatus();
