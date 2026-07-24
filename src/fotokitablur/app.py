@@ -23,7 +23,8 @@ from src.fotokitablur.constants import (
     TYPEWRITER_CHAR_DELAY,
     TYPEWRITER_FADE_DURATION,
     MUSIC_PATH,
-    MUSIC_PATH_2
+    MUSIC_PATH_2,
+    CALIBRATION_DURATION
 )
 
 from src.fotokitablur.audio import AudioManager
@@ -183,13 +184,13 @@ class HandGestureApp:
                     next_gesture = self.calibration_manager.next_step()
                     if next_gesture:
                         self.calibration_next_gesture = next_gesture
-                        self.calibration_countdown = 3
+                        self.calibration_countdown = CALIBRATION_DURATION
                         print(f"[INFO] Next calibration: {next_gesture}")
                     else:
                         self.calibrating = False
                         print("[INFO] Calibration completed!")
                 else:
-                    progress = int((3 - self.calibration_countdown) / 3 * 100)
+                    progress = int((CALIBRATION_DURATION - self.calibration_countdown) / CALIBRATION_DURATION * 100)
                     self.renderer.draw_calibration_overlay(frame, f"Pose: {self.calibration_next_gesture}", progress, self._show_merge_info)
 
             cv2.imshow("Hand Gesture Detection", frame)
@@ -202,7 +203,7 @@ class HandGestureApp:
                 self.calibrating = True
                 self._show_merge_info = self.calibration_manager.has_existing_calibration()
                 self.calibration_manager.start_calibration()
-                self.calibration_countdown = 3
+                self.calibration_countdown = CALIBRATION_DURATION
                 self.calibration_next_gesture = self.calibration_manager.current_step_name()
                 print(f"[INFO] Calibration started. Pose: {self.calibration_next_gesture}")
 

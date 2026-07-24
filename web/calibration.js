@@ -32,7 +32,7 @@ class CalibrationManager {
     }
 
     recordFrame(landmarks) {
-        if (this.recording && this.recordedLandmarks.length < 90) {
+        if (this.recording && this.recordedLandmarks.length < 150) {
             this.recordedLandmarks.push(landmarks.map(l => ({...l})));
         }
     }

@@ -11,7 +11,7 @@ class CalibrationManager:
         self.recording = False
         self.current_gesture = None
         self.start_time = 0
-        self.recorded_landmarks = deque(maxlen=90)
+        self.recorded_landmarks = deque(maxlen=150)
         self.calibration_steps = ["V_SIGN", "THUMBS_UP", "FIST"]
         self.current_step = 0
         self.step_start_time = 0
@@ -36,7 +36,7 @@ class CalibrationManager:
         self.start_time = time.time()
 
     def record_frame(self, landmarks):
-        if self.recording and len(self.recorded_landmarks) < 90:
+        if self.recording and len(self.recorded_landmarks) < 150:
             lm_dict = [{"x": lm.x, "y": lm.y, "z": lm.z} for lm in landmarks]
             self.recorded_landmarks.append(lm_dict)
 

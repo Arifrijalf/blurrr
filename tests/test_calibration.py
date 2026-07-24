@@ -63,9 +63,9 @@ class TestCalibrationManager:
         self.cal.start_calibration()
         self.cal.start_recording_step()
         landmarks = [MockLandmark(i * 0.05, i * 0.02) for i in range(21)]
-        for _ in range(100):
+        for _ in range(200):
             self.cal.record_frame(landmarks)
-        assert len(self.cal.recorded_landmarks) == 90
+        assert len(self.cal.recorded_landmarks) == 150
 
     def test_stop_recording_creates_template(self):
         self.cal.start_calibration()

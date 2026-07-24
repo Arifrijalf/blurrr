@@ -220,7 +220,7 @@ let calibrationRecordingInterval = null;
 function startCalibration() {
     calibrationState = "COUNTDOWN";
     calibrationStep = 0;
-    calibrationCountdown = 3;
+    calibrationCountdown = 5;
     calibrationManager.startCalibration();
     
     countdownBtn.style.display = "none";
@@ -243,7 +243,7 @@ function startRecordingStep() {
     calibrationManager.startRecordingStep();
     
     let recordingTime = 0;
-    const maxRecordingTime = 3;
+    const maxRecordingTime = 5;
     
     updateCalibrationOverlay("Recording " + calibrationManager.currentStepName() + "...", maxRecordingTime, 0);
     
@@ -259,10 +259,10 @@ function startRecordingStep() {
             const nextStep = calibrationManager.nextStep();
             if (nextStep) {
                 calibrationStep++;
-                calibrationCountdown = 3;
+                calibrationCountdown = 5;
                 calibrationState = "COUNTDOWN";
                 
-                updateCalibrationOverlay("Next: " + nextStep, 3, 100);
+                updateCalibrationOverlay("Next: " + nextStep, 5, 100);
                 
                 calibrationCountdownInterval = setInterval(() => {
                     calibrationCountdown--;
@@ -299,7 +299,7 @@ function showCalibrationOverlay() {
     const mergeInfo = document.getElementById("calibrationMergeInfo");
     overlay.style.display = "block";
     stepEl.textContent = "Pose: " + calibrationManager.currentStepName();
-    timerEl.textContent = "3";
+    timerEl.textContent = "5";
     progressEl.style.width = "0%";
     
     if (calibrationManager.hasExistingCalibration()) {
