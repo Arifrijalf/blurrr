@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FotoKitaBlur - Hand Gesture Detection</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="shortcut icon" href="data:image/x-icon;,">
 </head>
 <body>
     <div class="container">
@@ -39,10 +40,22 @@
         <div id="loading" class="loading" style="display:none;">Loading model...</div>
     </div>
 
+    <script src="calibration.js"></script>
     <script type="module" src="app.js"></script>
     <script>
         if ("serviceWorker" in navigator) {
-            navigator.serviceWorker.register("./sw.js").catch(() => {});
+            navigator.serviceWorker.register("./sw.js").then(reg => {
+                reg.addEventListener("updatefound", () => {
+                    const newWorker = reg.installing;
+                    if (newWorker) {
+                        newWorker.addEventListener("statechange", () => {
+                            if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+                                location.reload();
+                            }
+                        });
+                    }
+                });
+            }).catch(() => {});
         }
         document.addEventListener("keydown", (e) => {
             if (e.key === "q" || e.key === "Q" || e.key === "Escape") {
