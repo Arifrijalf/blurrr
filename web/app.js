@@ -59,6 +59,10 @@ let typewriterCacheCtx = null;
 let typewriterCacheText = "";
 let typewriterCacheWidth = 0;
 
+const DETECT_EVERY_N_FRAMES = 2;
+let lastLandmarks = null;
+let lastDetectedMode = "NORMAL";
+
 function smoothLandmarks(raw) {
     if (!emaLandmarks) emaLandmarks = raw.map(l => ({...l}));
     raw.forEach((l, i) => {
@@ -593,34 +597,49 @@ function detectLoop() {
         return;
     }
 
-    const results = handLandmarker.detectForVideo(video, performance.now());
-    let detectedMode = "NORMAL";
+    const shouldDetect = (animFrame % DETECT_EVERY_N_FRAMES === 0);
 
-    if (results.landmarks && results.landmarks.length > 0) {
-        const landmarks = results.landmarks[0];
+    if (shouldDetect) {
+        const results = handLandmarker.detectForVideo(video, performance.now());
+        let detectedMode = "NORMAL";
 
-        if (calibrationState === "RECORDING") {
-            calibrationManager.recordFrame(landmarks);
+        if (results.landmarks && results.landmarks.length > 0) {
+            const landmarks = results.landmarks[0];
+            lastLandmarks = landmarks;
+
+            if (calibrationState === "RECORDING") {
+                calibrationManager.recordFrame(landmarks);
+            }
+
+            let calibratedGesture = null;
+            if (calibrationManager.isCalibrated()) {
+                calibratedGesture = calibrationManager.matchGesture(landmarks);
+            }
+
+            if (calibratedGesture) {
+                detectedMode = calibratedGesture;
+            } else {
+                detectedMode = detectGesture(landmarks);
+            }
+
+            lastDetectedMode = detectedMode;
+
+            if (stableMode === "NORMAL" || currentMode === "NORMAL") {
+                drawLandmarks(landmarks);
+            }
         }
 
-        let calibratedGesture = null;
-        if (calibrationManager.isCalibrated()) {
-            calibratedGesture = calibrationManager.matchGesture(landmarks);
+        const debounced = debounce(detectedMode);
+        handleTransition(debounced);
+    } else {
+        if (lastLandmarks && calibrationState === "RECORDING") {
+            calibrationManager.recordFrame(lastLandmarks);
         }
-
-        if (calibratedGesture) {
-            detectedMode = calibratedGesture;
-        } else {
-            detectedMode = detectGesture(landmarks);
-        }
-
-        if (stableMode === "NORMAL" || currentMode === "NORMAL") {
-            drawLandmarks(landmarks);
+        if (lastLandmarks && (stableMode === "NORMAL" || currentMode === "NORMAL")) {
+            drawLandmarks(lastLandmarks);
         }
     }
 
-    const debounced = debounce(detectedMode);
-    handleTransition(debounced);
     renderEffect();
     animFrame++;
     requestAnimationFrame(detectLoop);
@@ -666,7 +685,7 @@ function renderEffect() {
 
 function applyVsignEffect() {
     offCtx.save();
-    offCtx.filter = `blur(${blurIntensity}px) brightness(0.85)`;
+    offCtx.filter = `blur(${Math.min(blurIntensity, 10)}px) brightness(0.85)`;
     offCtx.drawImage(video, 0, 0, PROCESS_W, PROCESS_H);
     offCtx.restore();
 
