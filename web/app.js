@@ -381,6 +381,7 @@ export async function startApp() {
     modelReady = true;
     loading.style.display = "none";
     countdownBtn.style.display = "inline-block";
+    calibrationBtn.style.display = "inline-block";
 
     detectLoop();
 }
