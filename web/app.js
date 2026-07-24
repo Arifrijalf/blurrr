@@ -59,7 +59,8 @@ let typewriterCacheCtx = null;
 let typewriterCacheText = "";
 let typewriterCacheWidth = 0;
 
-const DETECT_EVERY_N_FRAMES = 3;
+const DETECT_EVERY_N_FRAMES_HAND = 6;
+const DETECT_EVERY_N_FRAMES_NO_HAND = 2;
 let lastLandmarks = null;
 let lastDetectedMode = "NORMAL";
 
@@ -601,32 +602,35 @@ function detectLoop() {
         return;
     }
 
-    const shouldDetect = (animFrame % DETECT_EVERY_N_FRAMES === 0);
+    const skipFrames = lastLandmarks ? DETECT_EVERY_N_FRAMES_HAND : DETECT_EVERY_N_FRAMES_NO_HAND;
+    const shouldDetect = (animFrame % skipFrames === 0);
 
     if (shouldDetect) {
         const results = handLandmarker.detectForVideo(video, performance.now());
         let detectedMode = "NORMAL";
 
         if (results.landmarks && results.landmarks.length > 0) {
-            const landmarks = results.landmarks[0];
-            lastLandmarks = landmarks;
+            lastLandmarks = results.landmarks[0];
 
             if (calibrationState === "RECORDING") {
-                calibrationManager.recordFrame(landmarks);
+                calibrationManager.recordFrame(lastLandmarks);
             }
 
             let calibratedGesture = null;
             if (calibrationManager.isCalibrated()) {
-                calibratedGesture = calibrationManager.matchGesture(landmarks);
+                calibratedGesture = calibrationManager.matchGesture(lastLandmarks);
             }
 
             if (calibratedGesture) {
                 detectedMode = calibratedGesture;
             } else {
-                detectedMode = detectGesture(landmarks);
+                detectedMode = detectGesture(lastLandmarks);
             }
 
             lastDetectedMode = detectedMode;
+        } else {
+            lastLandmarks = null;
+            lastDetectedMode = "NORMAL";
         }
 
         const debounced = debounce(detectedMode);
