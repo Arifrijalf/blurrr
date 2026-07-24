@@ -1,26 +1,23 @@
 # FotoKitaBlur
 
-Real-time hand gesture detection application using OpenCV and MediaPipe. Now available as a web application!
+Real-time hand gesture detection application using MediaPipe. Available as a web application with photobooth and calibration features!
 
 ## Features
 
 - **V Sign (Peace)** - Blur effect + typewriter text "Foto kita blur" + Love hearts animation
-- **Thumbs Up** - Colored edge detection + "mantabbb" text
-- **Fist** - Red overlay + "jokowii" text + music
+- **Thumbs Up** - Colored edge detection + "Mantap!" text
+- **Fist** - Red overlay + "Hidup Jokowi!!!" text + music
+- **Photobooth** - Countdown timer + frame capture + download
+- **Calibration** - Custom gesture calibration for better accuracy
 
-## Web Version
+## Running the Web Version
 
-The web version runs directly in your browser using MediaPipe Web SDK.
-
-### Running the Web Version locally:
-
-1. Install Python (for local server):
-2. Navigate to `web/` folder:
 ```bash
 cd web
-python -m http.server 8000
+npx serve -l 3000
 ```
-3. Open `http://localhost:8000` in your browser.
+
+Then open `http://localhost:3000` in your browser.
 
 ## Requirements
 
