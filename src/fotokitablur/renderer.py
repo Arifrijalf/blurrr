@@ -169,7 +169,7 @@ class EffectRenderer:
         cv2.putText(frame, hint, (w - tw - 10, h - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.45, (160, 160, 160), 1, cv2.LINE_AA)
 
-    def draw_calibration_overlay(self, frame: np.ndarray, text: str, progress: int):
+    def draw_calibration_overlay(self, frame: np.ndarray, text: str, progress: int, show_merge_info: bool = False):
         h, w = frame.shape[:2]
         overlay = frame.copy()
         cv2.rectangle(overlay, (0, 0), (w, h), (0, 0, 0), -1)
@@ -181,10 +181,14 @@ class EffectRenderer:
         cv2.putText(frame, text, (w//2 - 150, h//2),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2, cv2.LINE_AA)
         
+        if show_merge_info:
+            cv2.putText(frame, "Menggabungkan dengan data sebelumnya...", (w//2 - 200, h//2 + 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 255, 100), 1, cv2.LINE_AA)
+        
         bar_width = 300
         bar_height = 30
         bar_x = (w - bar_width) // 2
-        bar_y = h//2 + 40
+        bar_y = h//2 + 50
         cv2.rectangle(frame, (bar_x, bar_y), (bar_x + bar_width, bar_y + bar_height), (50, 50, 50), -1)
         cv2.rectangle(frame, (bar_x, bar_y), (bar_x + int(bar_width * progress / 100), bar_y + bar_height), (0, 255, 0), -1)
 

@@ -64,6 +64,7 @@ class HandGestureApp:
         self.calibrating = False
         self.calibration_countdown = 0
         self.calibration_next_gesture = None
+        self._show_merge_info = False
 
     def _handle_mode_transition(self, new_mode: GestureMode):
         if new_mode == self.current_mode:
@@ -189,7 +190,7 @@ class HandGestureApp:
                         print("[INFO] Calibration completed!")
                 else:
                     progress = int((3 - self.calibration_countdown) / 3 * 100)
-                    self.renderer.draw_calibration_overlay(frame, f"Pose: {self.calibration_next_gesture}", progress)
+                    self.renderer.draw_calibration_overlay(frame, f"Pose: {self.calibration_next_gesture}", progress, self._show_merge_info)
 
             cv2.imshow("Hand Gesture Detection", frame)
 
@@ -199,6 +200,7 @@ class HandGestureApp:
             
             if key == ord('c') and not self.calibrating:
                 self.calibrating = True
+                self._show_merge_info = self.calibration_manager.has_existing_calibration()
                 self.calibration_manager.start_calibration()
                 self.calibration_countdown = 3
                 self.calibration_next_gesture = self.calibration_manager.current_step_name()

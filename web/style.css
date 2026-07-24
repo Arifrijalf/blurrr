@@ -180,3 +180,10 @@ h1 {
     width: 0%;
     transition: width 0.3s ease;
 }
+
+#calibrationOverlay .merge-info {
+    color: #6bcb77;
+    font-size: 14px;
+    margin: 10px 0;
+    font-style: italic;
+}

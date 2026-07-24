@@ -296,10 +296,18 @@ function showCalibrationOverlay() {
     const stepEl = document.getElementById("calibrationStep");
     const timerEl = document.getElementById("calibrationTimer");
     const progressEl = document.getElementById("calibrationProgress");
+    const mergeInfo = document.getElementById("calibrationMergeInfo");
     overlay.style.display = "block";
     stepEl.textContent = "Pose: " + calibrationManager.currentStepName();
     timerEl.textContent = "3";
     progressEl.style.width = "0%";
+    
+    if (calibrationManager.hasExistingCalibration()) {
+        mergeInfo.style.display = "block";
+        mergeInfo.textContent = "Menggabungkan dengan data sebelumnya...";
+    } else {
+        mergeInfo.style.display = "none";
+    }
 }
 
 function updateCalibrationOverlay(text, timeLeft, progress) {

@@ -16,9 +16,13 @@ class CalibrationManager:
         self.current_step = 0
         self.step_start_time = 0
 
+    def has_existing_calibration(self):
+        return len(self.templates) > 0
+
     def start_calibration(self):
         self.current_step = 0
-        self.templates = {}
+        if not self.templates:
+            self.load()
         return self.calibration_steps[self.current_step]
 
     def current_step_name(self):
@@ -42,17 +46,38 @@ class CalibrationManager:
         self.recording = False
         if len(self.recorded_landmarks) < 10:
             return
+
+        new_count = len(self.recorded_landmarks)
         avg_landmarks = []
         for i in range(21):
-            x = sum(lm[i]["x"] for lm in self.recorded_landmarks) / len(self.recorded_landmarks)
-            y = sum(lm[i]["y"] for lm in self.recorded_landmarks) / len(self.recorded_landmarks)
-            z = sum(lm[i]["z"] for lm in self.recorded_landmarks) / len(self.recorded_landmarks)
+            x = sum(lm[i]["x"] for lm in self.recorded_landmarks) / new_count
+            y = sum(lm[i]["y"] for lm in self.recorded_landmarks) / new_count
+            z = sum(lm[i]["z"] for lm in self.recorded_landmarks) / new_count
             avg_landmarks.append({"x": x, "y": y, "z": z})
-        self.templates[self.current_gesture] = {
-            "landmarks": avg_landmarks,
-            "recorded_at": time.time(),
-            "sample_count": len(self.recorded_landmarks)
-        }
+
+        gesture = self.current_gesture
+        if gesture in self.templates:
+            old = self.templates[gesture]
+            old_count = old.get("sample_count", 1)
+            old_landmarks = old["landmarks"]
+            total = old_count + new_count
+            merged = []
+            for i in range(21):
+                mx = (old_landmarks[i]["x"] * old_count + avg_landmarks[i]["x"] * new_count) / total
+                my = (old_landmarks[i]["y"] * old_count + avg_landmarks[i]["y"] * new_count) / total
+                mz = (old_landmarks[i]["z"] * old_count + avg_landmarks[i]["z"] * new_count) / total
+                merged.append({"x": mx, "y": my, "z": mz})
+            self.templates[gesture] = {
+                "landmarks": merged,
+                "recorded_at": time.time(),
+                "sample_count": total
+            }
+        else:
+            self.templates[gesture] = {
+                "landmarks": avg_landmarks,
+                "recorded_at": time.time(),
+                "sample_count": new_count
+            }
 
     def next_step(self):
         self.current_step += 1

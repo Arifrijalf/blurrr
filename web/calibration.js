@@ -9,9 +9,15 @@ class CalibrationManager {
         this.currentStep = 0;
     }
 
+    hasExistingCalibration() {
+        return Object.keys(this.templates).length > 0;
+    }
+
     startCalibration() {
         this.currentStep = 0;
-        this.templates = {};
+        if (Object.keys(this.templates).length === 0) {
+            this.load();
+        }
         return this.calibrationSteps[this.currentStep];
     }
 
@@ -37,21 +43,43 @@ class CalibrationManager {
 
         if (this.recordedLandmarks.length < 10) return;
 
+        const newCount = this.recordedLandmarks.length;
         const avgLandmarks = [];
         for (let i = 0; i < 21; i++) {
             const avg = {
-                x: this.recordedLandmarks.reduce((sum, lm) => sum + lm[i].x, 0) / this.recordedLandmarks.length,
-                y: this.recordedLandmarks.reduce((sum, lm) => sum + lm[i].y, 0) / this.recordedLandmarks.length,
-                z: this.recordedLandmarks.reduce((sum, lm) => sum + lm[i].z, 0) / this.recordedLandmarks.length
+                x: this.recordedLandmarks.reduce((sum, lm) => sum + lm[i].x, 0) / newCount,
+                y: this.recordedLandmarks.reduce((sum, lm) => sum + lm[i].y, 0) / newCount,
+                z: this.recordedLandmarks.reduce((sum, lm) => sum + lm[i].z, 0) / newCount
             };
             avgLandmarks.push(avg);
         }
 
-        this.templates[this.currentGesture] = {
-            landmarks: avgLandmarks,
-            recordedAt: Date.now(),
-            sampleCount: this.recordedLandmarks.length
-        };
+        const gesture = this.currentGesture;
+        if (this.templates[gesture]) {
+            const old = this.templates[gesture];
+            const oldCount = old.sampleCount || 1;
+            const oldLandmarks = old.landmarks;
+            const total = oldCount + newCount;
+            const merged = [];
+            for (let i = 0; i < 21; i++) {
+                merged.push({
+                    x: (oldLandmarks[i].x * oldCount + avgLandmarks[i].x * newCount) / total,
+                    y: (oldLandmarks[i].y * oldCount + avgLandmarks[i].y * newCount) / total,
+                    z: (oldLandmarks[i].z * oldCount + avgLandmarks[i].z * newCount) / total
+                });
+            }
+            this.templates[gesture] = {
+                landmarks: merged,
+                recordedAt: Date.now(),
+                sampleCount: total
+            };
+        } else {
+            this.templates[gesture] = {
+                landmarks: avgLandmarks,
+                recordedAt: Date.now(),
+                sampleCount: newCount
+            };
+        }
     }
 
     nextStep() {
