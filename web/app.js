@@ -41,6 +41,7 @@ let audioFistBuf = null;
 let photoBoothState = "IDLE";
 let countdownValue = 0;
 let capturedImageData = null;
+let capturedPreviewImg = null;
 let currentFrameIndex = 0;
 let frameImages = [];
 const frameImagePaths = ["frames/frame1.png", "frames/frame2.png"];
@@ -156,6 +157,17 @@ function unmirror(fn) {
     ctx.restore();
 }
 
+function drawFrameSized(c, img, cw, ch) {
+    const iw = img.naturalWidth || img.width;
+    const ih = img.naturalHeight || img.height;
+    const scale = Math.max(cw / iw, ch / ih);
+    const sw = iw * scale;
+    const sh = ih * scale;
+    const sx = (cw - sw) / 2;
+    const sy = (ch - sh) / 2;
+    c.drawImage(img, sx, sy, sw, sh);
+}
+
 let blurIntensity = 14;
 
 function initPreview() {
@@ -224,7 +236,6 @@ function capturePhoto() {
     capturedImageData = tempCanvas.toDataURL("image/png");
     photoBoothState = "CAPTURED_PREVIEW";
     downloadBtn.style.display = "inline-block";
-    currentFrameIndex = (currentFrameIndex + 1) % frameImages.length;
 }
 
 function downloadPhoto() {
@@ -242,7 +253,7 @@ function downloadPhoto() {
         tempCtx.drawImage(img, 0, 0, W, H);
         tempCtx.restore();
         if (frameImages[currentFrameIndex].complete) {
-            tempCtx.drawImage(frameImages[currentFrameIndex], 0, 0, W, H);
+            drawFrameSized(tempCtx, frameImages[currentFrameIndex], W, H);
         }
         const link = document.createElement("a");
         link.download = "photobooth_" + Date.now() + ".png";
@@ -254,6 +265,7 @@ function downloadPhoto() {
 function resetPhotoBooth() {
     photoBoothState = "IDLE";
     capturedImageData = null;
+    capturedPreviewImg = null;
     document.getElementById("actionBtns").style.display = "flex";
     countdownBtn.style.display = "inline-block";
     downloadBtn.style.display = "none";
@@ -569,7 +581,7 @@ function detectLoop() {
     if (photoBoothState === "COUNTDOWN") {
         ctx.drawImage(video, 0, 0, W, H);
         if (frameImages.length > 0 && frameImages[currentFrameIndex] && frameImages[currentFrameIndex].complete) {
-            ctx.drawImage(frameImages[currentFrameIndex], 0, 0, W, H);
+            drawFrameSized(ctx, frameImages[currentFrameIndex], W, H);
         }
         unmirror(() => {
             ctx.fillStyle = "white";
@@ -583,22 +595,22 @@ function detectLoop() {
     }
 
     if (photoBoothState === "CAPTURED_PREVIEW") {
-        if (capturedImageData) {
-            const img = new Image();
-            img.src = capturedImageData;
-            img.onload = () => {
-                ctx.drawImage(img, 0, 0, W, H);
-                if (frameImages[currentFrameIndex].complete) {
-                    ctx.drawImage(frameImages[currentFrameIndex], 0, 0, W, H);
-                }
-                unmirror(() => {
-                    ctx.fillStyle = "white";
-                    ctx.font = "bold 20px 'Segoe UI', sans-serif";
-                    ctx.textAlign = "center";
-                    ctx.textBaseline = "middle";
-                    ctx.fillText("Click Download or make FIST to reset", W / 2, H - 40);
-                });
-            };
+        if (capturedImageData && !capturedPreviewImg) {
+            capturedPreviewImg = new Image();
+            capturedPreviewImg.src = capturedImageData;
+        }
+        if (capturedPreviewImg && capturedPreviewImg.complete) {
+            ctx.drawImage(capturedPreviewImg, 0, 0, W, H);
+            if (frameImages[currentFrameIndex] && frameImages[currentFrameIndex].complete) {
+                drawFrameSized(ctx, frameImages[currentFrameIndex], W, H);
+            }
+            unmirror(() => {
+                ctx.fillStyle = "white";
+                ctx.font = "bold 18px 'Segoe UI', sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText("[ ] ganti frame | FIST reset | Download", W / 2, H - 40);
+            });
         }
         requestAnimationFrame(detectLoop);
         return;
@@ -668,7 +680,7 @@ function renderEffect() {
     }
 
     if (frameImages.length > 0 && frameImages[currentFrameIndex] && frameImages[currentFrameIndex].complete) {
-        ctx.drawImage(frameImages[currentFrameIndex], 0, 0, W, H);
+        drawFrameSized(ctx, frameImages[currentFrameIndex], W, H);
     }
 
     drawStatus();
