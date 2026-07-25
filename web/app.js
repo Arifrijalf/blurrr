@@ -599,9 +599,6 @@ function detectLoop() {
 
     if (photoBoothState === "COUNTDOWN") {
         ctx.drawImage(video, 0, 0, W, H);
-        if (frameImages.length > 0 && frameImages[currentFrameIndex] && frameImages[currentFrameIndex].complete) {
-            drawFrameSized(ctx, frameImages[currentFrameIndex], W, H);
-        }
         unmirror(() => {
             ctx.fillStyle = "white";
             ctx.font = "bold 100px 'Segoe UI', sans-serif";
@@ -696,10 +693,6 @@ function renderEffect() {
         applyThumbsUpEffect();
     } else if (currentMode === "FIST") {
         applyFistEffect();
-    }
-
-    if (frameImages.length > 0 && frameImages[currentFrameIndex] && frameImages[currentFrameIndex].complete) {
-        drawFrameSized(ctx, frameImages[currentFrameIndex], W, H);
     }
 
     drawStatus();
