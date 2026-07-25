@@ -49,6 +49,8 @@ let countdownInterval = null;
 let countdownBtn = null;
 let downloadBtn = null;
 let calibrationBtn = null;
+let prevFrameBtn = null;
+let nextFrameBtn = null;
 
 let emaLandmarks = null;
 const EMA_ALPHA = 0.3;
@@ -198,10 +200,18 @@ function initPhotoBooth() {
     countdownBtn = document.getElementById("countdownBtn");
     downloadBtn = document.getElementById("downloadBtn");
     calibrationBtn = document.getElementById("calibrationBtn");
+    prevFrameBtn = document.getElementById("prevFrameBtn");
+    nextFrameBtn = document.getElementById("nextFrameBtn");
 
     countdownBtn.addEventListener("click", startPhotoBoothCountdown);
     downloadBtn.addEventListener("click", downloadPhoto);
     calibrationBtn.addEventListener("click", startCalibration);
+    prevFrameBtn.addEventListener("click", () => {
+        currentFrameIndex = (currentFrameIndex - 1 + frameImages.length) % frameImages.length;
+    });
+    nextFrameBtn.addEventListener("click", () => {
+        currentFrameIndex = (currentFrameIndex + 1) % frameImages.length;
+    });
 
     for (const path of frameImagePaths) {
         const img = new Image();
@@ -235,7 +245,12 @@ function capturePhoto() {
 
     capturedImageData = tempCanvas.toDataURL("image/png");
     photoBoothState = "CAPTURED_PREVIEW";
+    document.getElementById("actionBtns").style.display = "flex";
     downloadBtn.style.display = "inline-block";
+    countdownBtn.style.display = "none";
+    calibrationBtn.style.display = "none";
+    prevFrameBtn.style.display = "inline-block";
+    nextFrameBtn.style.display = "inline-block";
 }
 
 function downloadPhoto() {
@@ -270,6 +285,8 @@ function resetPhotoBooth() {
     countdownBtn.style.display = "inline-block";
     downloadBtn.style.display = "none";
     calibrationBtn.style.display = "inline-block";
+    prevFrameBtn.style.display = "none";
+    nextFrameBtn.style.display = "none";
 }
 
 let calibrationState = "IDLE";
@@ -451,6 +468,8 @@ async function startApp() {
     loading.style.display = "none";
     document.getElementById("actionBtns").style.display = "flex";
     downloadBtn.style.display = "none";
+    prevFrameBtn.style.display = "none";
+    nextFrameBtn.style.display = "none";
 
     detectLoop();
 }
