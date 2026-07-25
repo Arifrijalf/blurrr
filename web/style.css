@@ -163,6 +163,62 @@ h1 {
     50% { opacity: 1; }
 }
 
+.gesture-toggles {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 12px;
+}
+.toggle-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 6px 14px 6px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+.toggle-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+.toggle-item input[type="checkbox"] {
+    display: none;
+}
+.toggle-slider {
+    width: 36px;
+    height: 18px;
+    background: #555;
+    border-radius: 9px;
+    position: relative;
+    transition: background 0.2s;
+}
+.toggle-slider::before {
+    content: "";
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.2s;
+}
+.toggle-item input[type="checkbox"]:checked + .toggle-slider {
+    background: #6bcb77;
+}
+.toggle-item input[type="checkbox"]:checked + .toggle-slider::before {
+    transform: translateX(18px);
+}
+.toggle-label-text {
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+.toggle-label-text.peace { color: #00dcff; }
+.toggle-label-text.mantab { color: #00ff64; }
+.toggle-label-text.jokowi { color: #ff4444; }
+
 #calibrationOverlay {
     position: absolute;
     top: 50%;

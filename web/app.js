@@ -52,6 +52,8 @@ let calibrationBtn = null;
 let prevFrameBtn = null;
 let nextFrameBtn = null;
 
+let gestureEnabled = { V_SIGN: true, THUMBS_UP: true, FIST: true };
+
 let emaLandmarks = null;
 const EMA_ALPHA = 0.3;
 
@@ -196,6 +198,24 @@ function initPreview() {
 }
 initPreview();
 
+function initGestureToggles() {
+    const toggles = {
+        toggleVSign: "V_SIGN",
+        toggleThumbsUp: "THUMBS_UP",
+        toggleFist: "FIST"
+    };
+    for (const [id, gesture] of Object.entries(toggles)) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        el.addEventListener("change", (e) => {
+            gestureEnabled[gesture] = e.target.checked;
+            if (!e.target.checked && currentMode === gesture) {
+                handleTransition("NORMAL");
+            }
+        });
+    }
+}
+
 function initPhotoBooth() {
     countdownBtn = document.getElementById("countdownBtn");
     downloadBtn = document.getElementById("downloadBtn");
@@ -220,6 +240,7 @@ function initPhotoBooth() {
     }
 }
 initPhotoBooth();
+initGestureToggles();
 
 function startPhotoBoothCountdown() {
     photoBoothState = "COUNTDOWN";
@@ -515,8 +536,8 @@ function detectGesture(landmarks) {
     const middleConf = (landmarks[9].y - landmarks[12].y) / handHeight;
     const vSignScore = (indexConf + middleConf) / 2;
 
-    if (vSignScore > 0.12 && indexUp && middleUp && (!ringUp || !pinkyUp)) return "V_SIGN";
-    if (vSignScore < 0.03 && currentMode === "V_SIGN" && (indexUp || middleUp)) return "V_SIGN";
+    if (gestureEnabled.V_SIGN && vSignScore > 0.12 && indexUp && middleUp && (!ringUp || !pinkyUp)) return "V_SIGN";
+    if (gestureEnabled.V_SIGN && vSignScore < 0.03 && currentMode === "V_SIGN" && (indexUp || middleUp)) return "V_SIGN";
 
     const upright = isHandUpright(landmarks);
     const thumbTip = landmarks[4];
@@ -528,11 +549,11 @@ function detectGesture(landmarks) {
     const avgThumbExt = (thumbExtTip + thumbExtIp) / 2;
     const thumbScore = avgThumbExt / handHeight;
 
-    if (thumbScore > 0.08 && !indexUp) return "THUMBS_UP";
-    if (thumbScore > 0.02 && currentMode === "THUMBS_UP") return "THUMBS_UP";
+    if (gestureEnabled.THUMBS_UP && thumbScore > 0.08 && !indexUp) return "THUMBS_UP";
+    if (gestureEnabled.THUMBS_UP && thumbScore > 0.02 && currentMode === "THUMBS_UP") return "THUMBS_UP";
 
-    if (thumbScore <= 0.03 && allFingersDown) return "FIST";
-    if (thumbScore <= 0.05 && currentMode === "FIST" && allFingersDown) return "FIST";
+    if (gestureEnabled.FIST && thumbScore <= 0.03 && allFingersDown) return "FIST";
+    if (gestureEnabled.FIST && thumbScore <= 0.05 && currentMode === "FIST" && allFingersDown) return "FIST";
 
     return "NORMAL";
 }

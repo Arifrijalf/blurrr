@@ -9,7 +9,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>FotoKitaBlur</h1>
+        <h1>indahblurr</h1>
         <div class="main-wrapper">
             <div class="video-wrapper">
                 <video id="webcam" autoplay playsinline></video>
@@ -39,6 +39,23 @@
                 <button id="prevFrameBtn" style="display:none;">◀ Frame</button>
                 <button id="nextFrameBtn" style="display:none;">Frame ▶</button>
                 <button id="calibrationBtn">Kalibrasi</button>
+            </div>
+            <div id="gestureToggles" class="gesture-toggles">
+                <label class="toggle-item">
+                    <input type="checkbox" id="toggleVSign" checked>
+                    <span class="toggle-slider"></span>
+                    <span class="toggle-label-text peace">Peace</span>
+                </label>
+                <label class="toggle-item">
+                    <input type="checkbox" id="toggleThumbsUp" checked>
+                    <span class="toggle-slider"></span>
+                    <span class="toggle-label-text mantab">Mantab</span>
+                </label>
+                <label class="toggle-item">
+                    <input type="checkbox" id="toggleFist" checked>
+                    <span class="toggle-slider"></span>
+                    <span class="toggle-label-text jokowi">Jokowi</span>
+                </label>
             </div>
         </div>
         <div id="loading" class="loading" style="display:none;">Loading model...</div>
