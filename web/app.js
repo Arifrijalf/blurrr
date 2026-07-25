@@ -515,7 +515,7 @@ function detectGesture(landmarks) {
     const middleConf = (landmarks[9].y - landmarks[12].y) / handHeight;
     const vSignScore = (indexConf + middleConf) / 2;
 
-    if (vSignScore > 0.12 && indexUp && middleUp && !ringUp && !pinkyUp) return "V_SIGN";
+    if (vSignScore > 0.12 && indexUp && middleUp && (!ringUp || !pinkyUp)) return "V_SIGN";
     if (vSignScore < 0.03 && currentMode === "V_SIGN" && (indexUp || middleUp)) return "V_SIGN";
 
     const upright = isHandUpright(landmarks);

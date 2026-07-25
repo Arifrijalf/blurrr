@@ -114,11 +114,17 @@ class CalibrationManager:
         return best_gesture if best_score > 0.7 else None
 
     def _calculate_similarity(self, current, template):
-        total_distance = 0
+        dist_normal = 0.0
+        dist_mirror = 0.0
         for i in range(21):
+            mx = 1.0 - template[i]["x"]
             dx = current[i]["x"] - template[i]["x"]
+            dmx = current[i]["x"] - mx
             dy = current[i]["y"] - template[i]["y"]
             dz = current[i]["z"] - template[i]["z"]
-            total_distance += (dx * dx + dy * dy + dz * dz) ** 0.5
-        avg_distance = total_distance / 21
-        return max(0.0, 1.0 - avg_distance * 8)
+            dist_normal += (dx * dx + dy * dy + dz * dz) ** 0.5
+            dist_mirror += (dmx * dmx + dy * dy + dz * dz) ** 0.5
+        avg_normal = dist_normal / 21
+        avg_mirror = dist_mirror / 21
+        best = min(avg_normal, avg_mirror)
+        return max(0.0, 1.0 - best * 8)

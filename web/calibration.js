@@ -128,15 +128,20 @@ class CalibrationManager {
     }
 
     calculateSimilarity(current, template) {
-        let totalDistance = 0;
+        let distNormal = 0, distMirror = 0;
         for (let i = 0; i < 21; i++) {
+            const mx = 1 - template[i].x;
             const dx = current[i].x - template[i].x;
+            const dmx = current[i].x - mx;
             const dy = current[i].y - template[i].y;
             const dz = (current[i].z || 0) - (template[i].z || 0);
-            totalDistance += Math.sqrt(dx * dx + dy * dy + dz * dz);
+            distNormal += Math.sqrt(dx * dx + dy * dy + dz * dz);
+            distMirror += Math.sqrt(dmx * dmx + dy * dy + dz * dz);
         }
-        const avgDistance = totalDistance / 21;
-        return Math.max(0.0, 1.0 - avgDistance * 8);
+        const avgNormal = distNormal / 21;
+        const avgMirror = distMirror / 21;
+        const best = Math.min(avgNormal, avgMirror);
+        return Math.max(0.0, 1.0 - best * 8);
     }
 
     isCalibrated() {
