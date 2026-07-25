@@ -169,7 +169,34 @@ class EffectRenderer:
         cv2.putText(frame, hint, (w - tw - 10, h - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.45, (160, 160, 160), 1, cv2.LINE_AA)
 
-    def draw_calibration_overlay(self, frame: np.ndarray, text: str, progress: int, show_merge_info: bool = False):
+    def _put_text_mirrored(self, frame, text, x, y, font_scale, color,
+                           thickness=3, outline_color=(0, 0, 0), outline_thickness=6):
+        font = cv2.FONT_HERSHEY_DUPLEX
+        (tw, th), _ = cv2.getTextSize(text, font, font_scale, thickness)
+        margin = outline_thickness + 5
+        c_h = th + 2 * margin
+        c_w = tw + 2 * margin
+        canvas = np.zeros((c_h, c_w, 3), dtype=np.uint8)
+        tx = margin
+        ty = th + margin
+        cv2.putText(canvas, text, (tx, ty), font, font_scale,
+                    outline_color, outline_thickness, cv2.LINE_AA)
+        cv2.putText(canvas, text, (tx, ty), font, font_scale,
+                    color, thickness, cv2.LINE_AA)
+        canvas = cv2.flip(canvas, 1)
+        mask = cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY) > 0
+        x1 = max(0, x)
+        y1 = max(0, y)
+        x2 = min(frame.shape[1], x + c_w)
+        y2 = min(frame.shape[0], y + c_h)
+        if x2 <= x1 or y2 <= y1:
+            return
+        roi = frame[y1:y2, x1:x2]
+        cm = canvas[y1-y:y2-y, x1-x:x2-x]
+        mk = mask[y1-y:y2-y, x1-x:x2-x]
+        roi[mk] = cm[mk]
+
+    def draw_calibration_overlay(self, frame: np.ndarray, text: str, progress: int, countdown_secs: int = 0, show_merge_info: bool = False):
         h, w = frame.shape[:2]
         overlay = frame.copy()
         cv2.rectangle(overlay, (0, 0), (w, h), (0, 0, 0), -1)
@@ -184,6 +211,17 @@ class EffectRenderer:
         if show_merge_info:
             cv2.putText(frame, "Menggabungkan dengan data sebelumnya...", (w//2 - 200, h//2 + 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 255, 100), 1, cv2.LINE_AA)
+        
+        if countdown_secs > 0:
+            cv2.putText(frame, str(countdown_secs), (w//2 - 40, h//2 - 100),
+                        cv2.FONT_HERSHEY_DUPLEX, 3.0, (0, 0, 0), 8, cv2.LINE_AA)
+            cv2.putText(frame, str(countdown_secs), (w//2 - 40, h//2 - 100),
+                        cv2.FONT_HERSHEY_DUPLEX, 3.0, (0, 255, 255), 4, cv2.LINE_AA)
+        
+        cv2.putText(frame, "Click Download or ...", (w//2 - 180, h - 80),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 4, cv2.LINE_AA)
+        cv2.putText(frame, "Click Download or ...", (w//2 - 180, h - 80),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
         
         bar_width = 300
         bar_height = 30

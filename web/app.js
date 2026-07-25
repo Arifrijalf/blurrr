@@ -5,7 +5,7 @@ const MUSIC_URL = "FOTO%20KITA%20BLUR%20-%20SAL%20PRIADI.mp3";
 const MUSIC_URL_2 = "Hidup%20jokowi%20%20sound%20meme.mp3";
 
 const FADE_DURATION = 0.4;
-const DEBOUNCE_FRAMES = 7;
+const DEBOUNCE_FRAMES = 5;
 const TYPEWRITER_CHAR_DELAY = 0.12;
 const TYPEWRITER_TEXT = "Foto kita blur";
 const THUMB_THRESHOLD = 0.10;
@@ -14,6 +14,7 @@ const W = 640;
 const H = 480;
 const PROCESS_W = 320;
 const PROCESS_H = 240;
+const DETECT_EVERY_N = 3;
 
 let handLandmarker = null;
 let video = null;
@@ -57,37 +58,18 @@ let heartSprite = null;
 let typewriterCacheCanvas = null;
 let typewriterCacheCtx = null;
 let typewriterCacheText = "";
-let typewriterCacheWidth = 0;
 
-const DETECT_EVERY_N_FRAMES_HAND = 6;
-const DETECT_EVERY_N_FRAMES_NO_HAND = 2;
 let lastLandmarks = null;
-let lastDetectedMode = "NORMAL";
-
-function smoothLandmarks(raw) {
-    if (!emaLandmarks) emaLandmarks = raw.map(l => ({...l}));
-    raw.forEach((l, i) => {
-        emaLandmarks[i].x = emaLandmarks[i].x * (1 - EMA_ALPHA) + l.x * EMA_ALPHA;
-        emaLandmarks[i].y = emaLandmarks[i].y * (1 - EMA_ALPHA) + l.y * EMA_ALPHA;
-        emaLandmarks[i].z = emaLandmarks[i].z * (1 - EMA_ALPHA) + l.z * EMA_ALPHA;
-    });
-    return emaLandmarks;
-}
 
 const FINGER_TIPS = [8, 12, 16, 20];
 const FINGER_PIPS = [6, 10, 14, 18];
 
-let prefetchedVision = null;
 let prefetchedAudioCtx = null;
 let prefetchedAudioVsign = null;
 let prefetchedAudioFist = null;
 
 function prefetchAssets() {
     prefetchedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-    prefetchedVision = FilesetResolver.forVisionTasks(
-        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm"
-    ).catch(e => { console.warn("Vision prefetch failed:", e); return null; });
 
     prefetchedAudioVsign = prefetchedAudioCtx
         ? fetch(MUSIC_URL)
@@ -220,8 +202,7 @@ initPhotoBooth();
 function startPhotoBoothCountdown() {
     photoBoothState = "COUNTDOWN";
     countdownValue = 3;
-    countdownBtn.style.display = "none";
-    downloadBtn.style.display = "none";
+    document.getElementById("actionBtns").style.display = "none";
 
     countdownInterval = setInterval(() => {
         countdownValue--;
@@ -238,11 +219,7 @@ function capturePhoto() {
     tempCanvas.height = H;
     const tempCtx = tempCanvas.getContext("2d");
 
-    tempCtx.save();
-    tempCtx.translate(W, 0);
-    tempCtx.scale(-1, 1);
     tempCtx.drawImage(video, 0, 0, W, H);
-    tempCtx.restore();
 
     capturedImageData = tempCanvas.toDataURL("image/png");
     photoBoothState = "CAPTURED_PREVIEW";
@@ -259,7 +236,11 @@ function downloadPhoto() {
     const img = new Image();
     img.src = capturedImageData;
     img.onload = () => {
+        tempCtx.save();
+        tempCtx.translate(W, 0);
+        tempCtx.scale(-1, 1);
         tempCtx.drawImage(img, 0, 0, W, H);
+        tempCtx.restore();
         if (frameImages[currentFrameIndex].complete) {
             tempCtx.drawImage(frameImages[currentFrameIndex], 0, 0, W, H);
         }
@@ -273,8 +254,10 @@ function downloadPhoto() {
 function resetPhotoBooth() {
     photoBoothState = "IDLE";
     capturedImageData = null;
+    document.getElementById("actionBtns").style.display = "flex";
     countdownBtn.style.display = "inline-block";
     downloadBtn.style.display = "none";
+    calibrationBtn.style.display = "inline-block";
 }
 
 let calibrationState = "IDLE";
@@ -289,9 +272,7 @@ function startCalibration() {
     calibrationCountdown = 5;
     calibrationManager.startCalibration();
 
-    countdownBtn.style.display = "none";
-    downloadBtn.style.display = "none";
-    calibrationBtn.style.display = "none";
+    document.getElementById("actionBtns").style.display = "none";
 
     showCalibrationOverlay();
 
@@ -352,6 +333,7 @@ function finishCalibration() {
 
     hideCalibrationOverlay();
 
+    document.getElementById("actionBtns").style.display = "flex";
     countdownBtn.style.display = "inline-block";
     downloadBtn.style.display = "none";
     calibrationBtn.style.display = "inline-block";
@@ -429,27 +411,34 @@ async function startApp() {
     loading.textContent = "Loading hand detection model...";
 
     audioCtx = prefetchedAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
-    const [vision] = await Promise.all([
-        prefetchedVision || FilesetResolver.forVisionTasks(
-            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm"
-        ),
+    await Promise.all([
         prefetchedAudioVsign.then(buf => { audioVsignBuf = buf; }),
         prefetchedAudioFist.then(buf => { audioFistBuf = buf; })
     ]);
 
-    handLandmarker = await HandLandmarker.createFromOptions(vision, {
-        baseOptions: { modelAssetPath: MODEL_URL, delegate: "GPU" },
-        runningMode: "VIDEO",
-        numHands: 1,
-        minHandDetectionConfidence: 0.5,
-        minHandPresenceConfidence: 0.5,
-        minTrackingConfidence: 0.5
-    });
+    try {
+        const vision = await FilesetResolver.forVisionTasks(
+            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm"
+        );
+        handLandmarker = await HandLandmarker.createFromOptions(vision, {
+            baseOptions: { modelAssetPath: MODEL_URL, delegate: "GPU" },
+            runningMode: "VIDEO",
+            numHands: 1,
+            minHandDetectionConfidence: 0.5,
+            minHandPresenceConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+    } catch (e) {
+        console.error("Model load failed:", e);
+        loading.textContent = "Failed to load model. Please reload.";
+        btn.style.display = "block";
+        return;
+    }
 
     modelReady = true;
     loading.style.display = "none";
-    countdownBtn.style.display = "inline-block";
-    calibrationBtn.style.display = "inline-block";
+    document.getElementById("actionBtns").style.display = "flex";
+    downloadBtn.style.display = "none";
 
     detectLoop();
 }
@@ -485,16 +474,18 @@ function fingerUp(landmarks, tipIdx, pipIdx) {
 function detectGesture(landmarks) {
     const fingersUp = FINGER_TIPS.map((tip, i) => fingerUp(landmarks, tip, FINGER_PIPS[i]));
     const [indexUp, middleUp, ringUp, pinkyUp] = fingersUp;
+    const allFingersDown = !indexUp && !middleUp && !ringUp && !pinkyUp;
+    const fingersUpCount = fingersUp.filter(Boolean).length;
 
     const handHeight = Math.abs(landmarks[0].y - landmarks[9].y);
-    if (handHeight < 0.001) return "NORMAL";
+    if (handHeight < 0.05) return "NORMAL";
 
     const indexConf = (landmarks[5].y - landmarks[8].y) / handHeight;
     const middleConf = (landmarks[9].y - landmarks[12].y) / handHeight;
+    const vSignScore = (indexConf + middleConf) / 2;
 
-    let vSignScore = (indexConf + middleConf) / 2;
-    if (vSignScore > 0.12) return "V_SIGN";
-    if (vSignScore < 0.03 && currentMode === "V_SIGN") return "V_SIGN";
+    if (vSignScore > 0.12 && indexUp && middleUp && !ringUp && !pinkyUp) return "V_SIGN";
+    if (vSignScore < 0.03 && currentMode === "V_SIGN" && (indexUp || middleUp)) return "V_SIGN";
 
     const upright = isHandUpright(landmarks);
     const thumbTip = landmarks[4];
@@ -506,20 +497,22 @@ function detectGesture(landmarks) {
     const avgThumbExt = (thumbExtTip + thumbExtIp) / 2;
     const thumbScore = avgThumbExt / handHeight;
 
-    if (thumbScore > 0.08) return "THUMBS_UP";
-    if (thumbScore > -0.02 && currentMode === "THUMBS_UP") return "THUMBS_UP";
+    if (thumbScore > 0.08 && !indexUp) return "THUMBS_UP";
+    if (thumbScore > 0.02 && currentMode === "THUMBS_UP") return "THUMBS_UP";
 
-    if (thumbScore <= 0.03) return "FIST";
-    if (thumbScore <= 0.12 && currentMode === "FIST") return "FIST";
+    if (thumbScore <= 0.03 && allFingersDown) return "FIST";
+    if (thumbScore <= 0.05 && currentMode === "FIST" && allFingersDown) return "FIST";
 
     return "NORMAL";
 }
 
 function debounce(rawMode) {
-    debounceBuffer.push(rawMode);
-    if (debounceBuffer.length > DEBOUNCE_FRAMES) debounceBuffer.shift();
-    if (debounceBuffer.length === DEBOUNCE_FRAMES && debounceBuffer.every(m => m === rawMode)) {
+    if (rawMode !== stableMode) {
+        debounceBuffer = new Array(DEBOUNCE_FRAMES).fill(rawMode);
         stableMode = rawMode;
+    } else {
+        debounceBuffer.push(rawMode);
+        if (debounceBuffer.length > DEBOUNCE_FRAMES) debounceBuffer.shift();
     }
     return stableMode;
 }
@@ -563,10 +556,12 @@ function detectLoop() {
         ctx.drawImage(video, 0, 0, W, H);
         ctx.fillStyle = "rgba(0,0,0,0.5)";
         ctx.fillRect(0, 0, W, H);
-        ctx.font = "bold 20px 'Segoe UI', sans-serif";
-        ctx.fillStyle = "#fff";
-        ctx.textAlign = "center";
-        ctx.fillText("Loading model...", W / 2, H / 2);
+        unmirror(() => {
+            ctx.font = "bold 20px 'Segoe UI', sans-serif";
+            ctx.fillStyle = "#fff";
+            ctx.textAlign = "center";
+            ctx.fillText("Loading model...", W / 2, H / 2);
+        });
         requestAnimationFrame(detectLoop);
         return;
     }
@@ -576,11 +571,13 @@ function detectLoop() {
         if (frameImages.length > 0 && frameImages[currentFrameIndex] && frameImages[currentFrameIndex].complete) {
             ctx.drawImage(frameImages[currentFrameIndex], 0, 0, W, H);
         }
-        ctx.fillStyle = "white";
-        ctx.font = "bold 100px 'Segoe UI', sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(countdownValue.toString(), W / 2, H / 2);
+        unmirror(() => {
+            ctx.fillStyle = "white";
+            ctx.font = "bold 100px 'Segoe UI', sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(countdownValue.toString(), W / 2, H / 2);
+        });
         requestAnimationFrame(detectLoop);
         return;
     }
@@ -594,23 +591,21 @@ function detectLoop() {
                 if (frameImages[currentFrameIndex].complete) {
                     ctx.drawImage(frameImages[currentFrameIndex], 0, 0, W, H);
                 }
-                ctx.fillStyle = "white";
-                ctx.font = "bold 20px 'Segoe UI', sans-serif";
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-                ctx.fillText("Click Download or make FIST to reset", W / 2, H - 40);
+                unmirror(() => {
+                    ctx.fillStyle = "white";
+                    ctx.font = "bold 20px 'Segoe UI', sans-serif";
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    ctx.fillText("Click Download or make FIST to reset", W / 2, H - 40);
+                });
             };
         }
         requestAnimationFrame(detectLoop);
         return;
     }
 
-    const skipFrames = lastLandmarks ? DETECT_EVERY_N_FRAMES_HAND : DETECT_EVERY_N_FRAMES_NO_HAND;
-    const shouldDetect = (animFrame % skipFrames === 0);
-
-    if (shouldDetect) {
+    if (animFrame % DETECT_EVERY_N === 0) {
         const results = handLandmarker.detectForVideo(video, performance.now());
-        let detectedMode = "NORMAL";
 
         if (results.landmarks && results.landmarks.length > 0) {
             lastLandmarks = results.landmarks[0];
@@ -619,28 +614,16 @@ function detectLoop() {
                 calibrationManager.recordFrame(lastLandmarks);
             }
 
-            let calibratedGesture = null;
-            if (calibrationManager.isCalibrated()) {
-                calibratedGesture = calibrationManager.matchGesture(lastLandmarks);
-            }
-
-            if (calibratedGesture) {
-                detectedMode = calibratedGesture;
-            } else {
-                detectedMode = detectGesture(lastLandmarks);
-            }
-
-            lastDetectedMode = detectedMode;
+            const calibratedGesture = calibrationManager.isCalibrated()
+                ? calibrationManager.matchGesture(lastLandmarks)
+                : null;
+            const detectedMode = calibratedGesture || detectGesture(lastLandmarks);
+            const debounced = debounce(detectedMode);
+            handleTransition(debounced);
         } else {
             lastLandmarks = null;
-            lastDetectedMode = "NORMAL";
-        }
-
-        const debounced = debounce(detectedMode);
-        handleTransition(debounced);
-    } else {
-        if (lastLandmarks && calibrationState === "RECORDING") {
-            calibrationManager.recordFrame(lastLandmarks);
+            const debounced = debounce("NORMAL");
+            handleTransition(debounced);
         }
     }
 
@@ -686,10 +669,6 @@ function renderEffect() {
 
     if (frameImages.length > 0 && frameImages[currentFrameIndex] && frameImages[currentFrameIndex].complete) {
         ctx.drawImage(frameImages[currentFrameIndex], 0, 0, W, H);
-    }
-
-    if (lastLandmarks && (stableMode === "NORMAL" || currentMode === "NORMAL")) {
-        drawLandmarks(lastLandmarks);
     }
 
     drawStatus();

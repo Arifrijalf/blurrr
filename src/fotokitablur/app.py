@@ -195,7 +195,8 @@ class HandGestureApp:
                             print("[INFO] Calibration completed!")
                 else:
                     progress = int((CALIBRATION_DURATION - self.calibration_countdown) / CALIBRATION_DURATION * 100)
-                    self.renderer.draw_calibration_overlay(frame, f"Pose: {self.calibration_next_gesture}", progress, self._show_merge_info)
+                    countdown_secs = int(np.ceil(self.calibration_countdown)) if self.calibration_countdown > 0 else 0
+                    self.renderer.draw_calibration_overlay(frame, f"Pose: {self.calibration_next_gesture}", progress, countdown_secs, self._show_merge_info)
 
             cv2.imshow("Hand Gesture Detection", frame)
 
