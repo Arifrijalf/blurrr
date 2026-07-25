@@ -4,11 +4,12 @@ Real-time hand gesture detection application using MediaPipe. Available as a web
 
 ## Features
 
-- **V Sign (Peace)** - Blur effect + typewriter text "Foto kita blur" + Love hearts animation
+- **V Sign (Peace)** - Blur effect + typewriter text "blurr" + Love hearts animation
 - **Thumbs Up** - Colored edge detection + "Mantap!" text
 - **Fist** - Red overlay + "Hidup Jokowi!!!" text + music
-- **Photobooth** - Countdown timer + frame capture + download
-- **Calibration** - Custom gesture calibration for better accuracy
+- **Photobooth** - Countdown timer + frame capture + download + multi-frame switching
+- **Gesture Toggles** - Enable/disable each gesture independently via UI switches
+- **Calibration** - Custom gesture calibration for better accuracy (mirror-invariant)
 
 ## Running the Web Version
 
@@ -18,6 +19,18 @@ npx serve -l 3000
 ```
 
 Then open `http://localhost:3000` in your browser.
+
+## Web Controls
+
+| Key / Button | Action |
+|--------------|--------|
+| Click "Start Photobooth" | 3s countdown then capture photo |
+| `[` / `]` or ◀ Frame / Frame ▶ buttons | Switch photo frame overlay |
+| Click "Download Photo" | Save photo with current frame |
+| Gesture toggles (Peace/Mantab/Jokowi) | Enable/disable each gesture |
+| Make FIST gesture | Reset photobooth after capture |
+| Click "Kalibrasi" | Gesture calibration (mirror-invariant, works for both hands) |
+| `Q` / `ESC` | Stop camera & exit |
 
 ## Requirements
 
@@ -61,7 +74,15 @@ python hand_gesture_app.py
 | V Sign | peace | Blur + Love animation + Music |
 | Thumbs Up | mantabbb | Edge detection + Text |
 | Fist | jokowii | Red overlay + Music |
-| Q / ESC | - | Exit application |
+| `C` | - | Start calibration |
+| `Q` / ESC | - | Exit application |
+
+## Technical Notes
+
+- **Service Worker**: Network-first with dynamic cache — always fetches latest files, falls back to cache when offline
+- **Frame overlays**: Render with aspect-ratio-preserved scaling (`cover` mode)
+- **Calibration**: Uses mirror-invariant similarity matching (X-mirror comparison) so left-hand calibration also works for right hand
+- **Gestures**: All three gestures can be independently toggled on/off from the web UI
 
 ## License
 
