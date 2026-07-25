@@ -1,4 +1,4 @@
-const CACHE_NAME = "fotokitablur-v2";
+const CACHE_NAME = "fotokitablur-v3";
 const ASSETS_TO_CACHE = [
     "./",
     "./index.html",
